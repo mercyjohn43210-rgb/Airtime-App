@@ -1,3 +1,4 @@
+
 const $ = id => document.getElementById(id);
 
 let s = JSON.parse(localStorage.getItem('jm_airtime') || 'null') || {
@@ -105,7 +106,7 @@ $('logout').onclick = () => {
   save();
 };
 
-/* REAL PAYSTACK TEST PAYMENT */
+/* ₦100 PAYSTACK TEST PAYMENT */
 async function fund() {
   const email = $('email').value.trim();
 
@@ -125,7 +126,7 @@ async function fund() {
         },
         body: JSON.stringify({
           email: email,
-          amount: 5000
+          amount: 100
         })
       }
     );
