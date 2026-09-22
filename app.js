@@ -1,16 +1,17 @@
-
 const $ = id => document.getElementById(id);
 
-let s = JSON.parse(localStorage.getItem('jm_airtime') || 'null') || {
-  logged: false,
-  balance: 10000,
-  history: []
-};
+let s =
+  JSON.parse(localStorage.getItem('jm_airtime') || 'null') || {
+    logged: false,
+    balance: 10000,
+    history: []
+  };
 
 let signup = false;
 
 const money = n =>
-  '₦' + Number(n).toLocaleString('en-NG', {
+  '₦' +
+  Number(n).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -106,9 +107,20 @@ $('logout').onclick = () => {
   save();
 };
 
-/* ₦100 PAYSTACK TEST PAYMENT */
+/* FUND WALLET */
 async function fund() {
   const email = $('email').value.trim();
+  const amountInput = $('fundAmount').value.trim();
+
+  if (!amountInput) {
+    return msg('Enter the amount you want to add.');
+  }
+
+  const amount = Number(amountInput);
+
+  if (!Number.isFinite(amount) || amount < 100) {
+    return msg('Minimum amount is ₦100.');
+  }
 
   if (!email) {
     return msg('Please enter your email address.');
@@ -126,7 +138,7 @@ async function fund() {
         },
         body: JSON.stringify({
           email: email,
-          amount: 100
+          amount: amount
         })
       }
     );
@@ -138,23 +150,33 @@ async function fund() {
       data.data &&
       data.data.authorization_url
     ) {
-      window.location.href = data.data.authorization_url;
+      window.location.href =
+        data.data.authorization_url;
     } else {
       msg('Payment could not be started.');
     }
+
   } catch (error) {
     console.error(error);
     msg('Unable to connect to payment server.');
   }
 }
 
-$('fund').onclick = fund;
+/* ADD MONEY BUTTON */
+$('fund').onclick = () => {
+  nav('wallet');
+
+  setTimeout(() => {
+    $('fundAmount').focus();
+  }, 100);
+};
+
 $('fund2').onclick = fund;
 
 /* AIRTIME */
 $('buyAirtime').onclick = () => {
-  let p = $('aPhone').value.trim();
-  let a = Number($('aAmount').value);
+  const p = $('aPhone').value.trim();
+  const a = Number($('aAmount').value);
 
   if (!p || !a || a < 50) {
     return msg('Enter a valid phone number and amount.');
@@ -179,8 +201,8 @@ $('buyAirtime').onclick = () => {
 
 /* DATA */
 $('buyData').onclick = () => {
-  let p = $('dPhone').value.trim();
-  let a = Number($('dPlan').value);
+  const p = $('dPhone').value.trim();
+  const a = Number($('dPlan').value);
 
   if (!p) {
     return msg('Enter a phone number.');
@@ -206,14 +228,14 @@ $('buyData').onclick = () => {
 /* NAVIGATION */
 document
   .querySelectorAll('.tab')
-  .forEach(x =>
-    x.onclick = () => nav(x.dataset.page)
-  );
+  .forEach(x => {
+    x.onclick = () => nav(x.dataset.page);
+  });
 
 document
   .querySelectorAll('[data-go]')
-  .forEach(x =>
-    x.onclick = () => nav(x.dataset.go)
-  );
+  .forEach(x => {
+    x.onclick = () => nav(x.dataset.go);
+  });
 
 render();
