@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 let s =
   JSON.parse(localStorage.getItem('jm_airtime') || 'null') || {
     logged: false,
-    balance: 10000,
+    balance: 0,
     history: []
   };
 
@@ -162,7 +162,7 @@ async function fund() {
   }
 }
 
-/* ADD MONEY BUTTON */
+/* ADD MONEY */
 $('fund').onclick = () => {
   nav('wallet');
 
