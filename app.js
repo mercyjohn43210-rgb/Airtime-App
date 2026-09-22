@@ -1,5 +1,8 @@
 const $ = id => document.getElementById(id);
 
+const BACKEND_URL =
+  'https://johnmercy-backend-46c5.onrender.com';
+
 let s =
   JSON.parse(localStorage.getItem('jm_airtime') || 'null') || {
     logged: false,
@@ -107,7 +110,109 @@ $('logout').onclick = () => {
   save();
 };
 
-/* FUND WALLET */
+/* =========================================
+   PAYSTACK PAYMENT VERIFICATION
+========================================= */
+
+async function verifyPayment(reference) {
+  try {
+    msg('Verifying your payment...');
+
+    const response = await fetch(
+      `${BACKEND_URL}/verify-payment/${encodeURIComponent(reference)}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Verification failed.');
+    }
+
+    if (!data.success) {
+      msg(data.message || 'Payment was not successful.');
+      return;
+    }
+
+    const paidAmount = Number(data.amount);
+
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+      msg('Invalid payment amount.');
+      return;
+    }
+
+    /*
+      Prevent the same Paystack reference from
+      being credited more than once on this browser.
+    */
+    const alreadyCredited = s.history.some(
+      transaction =>
+        transaction.reference === data.reference
+    );
+
+    if (alreadyCredited) {
+      msg('This payment has already been credited.');
+      return;
+    }
+
+    /* CREDIT WALLET */
+    s.balance += paidAmount;
+
+    /* SAVE PAYMENT TO HISTORY */
+    s.history.unshift({
+      type: 'Wallet Funding',
+      details: `Paystack • ${data.email || 'Payment successful'}`,
+      amount: paidAmount,
+      reference: data.reference
+    });
+
+    save();
+
+    nav('wallet');
+
+    msg(
+      `${money(paidAmount)} has been added to your wallet.`
+    );
+
+  } catch (error) {
+    console.error('Payment verification error:', error);
+    msg('Unable to verify payment.');
+  }
+}
+
+/* =========================================
+   CHECK PAYSTACK RETURN
+========================================= */
+
+async function checkPaymentReturn() {
+  const params = new URLSearchParams(
+    window.location.search
+  );
+
+  const reference =
+    params.get('reference') ||
+    params.get('trxref');
+
+  if (!reference) {
+    return;
+  }
+
+  /*
+    Remove the payment reference from the browser URL
+    after reading it.
+  */
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname
+  );
+
+  await verifyPayment(reference);
+}
+
+/* =========================================
+   FUND WALLET
+========================================= */
+
 async function fund() {
   const email = $('email').value.trim();
   const amountInput = $('fundAmount').value.trim();
@@ -130,12 +235,14 @@ async function fund() {
     msg('Connecting to Paystack...');
 
     const response = await fetch(
-      'https://johnmercy-backend-46c5.onrender.com/initialize-payment',
+      `${BACKEND_URL}/initialize-payment`,
       {
         method: 'POST',
+
         headers: {
           'Content-Type': 'application/json'
         },
+
         body: JSON.stringify({
           email: email,
           amount: amount
@@ -153,7 +260,11 @@ async function fund() {
       window.location.href =
         data.data.authorization_url;
     } else {
-      msg('Payment could not be started.');
+      console.error(data);
+      msg(
+        data.error ||
+        'Payment could not be started.'
+      );
     }
 
   } catch (error) {
@@ -162,7 +273,10 @@ async function fund() {
   }
 }
 
-/* ADD MONEY */
+/* =========================================
+   ADD MONEY
+========================================= */
+
 $('fund').onclick = () => {
   nav('wallet');
 
@@ -173,13 +287,18 @@ $('fund').onclick = () => {
 
 $('fund2').onclick = fund;
 
-/* AIRTIME */
+/* =========================================
+   AIRTIME
+========================================= */
+
 $('buyAirtime').onclick = () => {
   const p = $('aPhone').value.trim();
   const a = Number($('aAmount').value);
 
   if (!p || !a || a < 50) {
-    return msg('Enter a valid phone number and amount.');
+    return msg(
+      'Enter a valid phone number and amount.'
+    );
   }
 
   if (a > s.balance) {
@@ -199,7 +318,10 @@ $('buyAirtime').onclick = () => {
   msg('Airtime purchase recorded.');
 };
 
-/* DATA */
+/* =========================================
+   DATA
+========================================= */
+
 $('buyData').onclick = () => {
   const p = $('dPhone').value.trim();
   const a = Number($('dPlan').value);
@@ -225,7 +347,10 @@ $('buyData').onclick = () => {
   msg('Data purchase recorded.');
 };
 
-/* NAVIGATION */
+/* =========================================
+   NAVIGATION
+========================================= */
+
 document
   .querySelectorAll('.tab')
   .forEach(x => {
@@ -238,4 +363,14 @@ document
     x.onclick = () => nav(x.dataset.go);
   });
 
+/* =========================================
+   START APP
+========================================= */
+
 render();
+
+/*
+  Check whether Paystack has returned the
+  user to the app with a payment reference.
+*/
+checkPaymentReturn();
