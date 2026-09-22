@@ -25,11 +25,16 @@
 
 <section id="auth" class="screen">
   <div class="card auth">
+
     <h1 id="authTitle">Welcome back</h1>
 
     <p>Buy airtime and data from one simple dashboard.</p>
 
-    <input id="name" class="hidden" placeholder="Full name">
+    <input
+      id="name"
+      class="hidden"
+      placeholder="Full name"
+    >
 
     <input
       id="email"
@@ -43,25 +48,30 @@
       placeholder="Password"
     >
 
-    <button id="authBtn" class="primary">Log in</button>
+    <button id="authBtn" class="primary">
+      Log in
+    </button>
 
     <button id="switch" class="link">
       Create an account
     </button>
+
   </div>
 </section>
 
 <section id="app" class="hidden">
 
   <div class="card wallet">
+
     <div>
       <span>Wallet balance</span>
       <strong id="balance">₦10,000.00</strong>
     </div>
 
     <button id="fund" class="secondary">
-      Add ₦100
+      Add Money
     </button>
+
   </div>
 
   <nav>
@@ -172,15 +182,22 @@
 
       <p>Your current demo balance:</p>
 
-      <strong id="walletBalance">
-        ₦10,000.00
-      </strong>
+      <strong id="walletBalance">₦10,000.00</strong>
 
       <br>
       <br>
+
+      <input
+        id="fundAmount"
+        type="number"
+        min="100"
+        step="1"
+        inputmode="decimal"
+        placeholder="Enter amount (₦)"
+      >
 
       <button id="fund2" class="secondary">
-        Add ₦100
+        Add Money
       </button>
 
     </div>
