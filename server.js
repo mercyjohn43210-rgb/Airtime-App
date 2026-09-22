@@ -1,8 +1,10 @@
 const express = require("express");
 const axios = require("axios");
+const cors = require("cors");
 
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -13,11 +15,17 @@ app.post("/initialize-payment", async (req, res) => {
   try {
     const { email, amount } = req.body;
 
+    if (!email || !amount) {
+      return res.status(400).json({
+        error: "Email and amount are required"
+      });
+    }
+
     const response = await axios.post(
       "https://api.paystack.co/transaction/initialize",
       {
         email,
-        amount: amount * 100,
+        amount: Number(amount) * 100,
         currency: "NGN"
       },
       {
@@ -30,6 +38,11 @@ app.post("/initialize-payment", async (req, res) => {
 
     res.json(response.data);
   } catch (error) {
+    console.error(
+      "Paystack error:",
+      error.response?.data || error.message
+    );
+
     res.status(500).json({
       error: "Payment initialization failed"
     });
