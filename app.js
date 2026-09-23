@@ -71,22 +71,96 @@ function nav(p) {
 }
 
 /* =========================================
-   LOGIN
+   LOGIN / SIGN UP
 ========================================= */
 
-$('authBtn').onclick = () => {
+$('authBtn').onclick = async () => {
+  const email = $('email').value.trim();
+  const password = $('password').value;
+
   if (
-    !$('email').value ||
-    !$('password').value ||
-    (signup && !$('name').value)
+    !email ||
+    !password ||
+    (signup && !$('name').value.trim())
   ) {
     return msg('Please fill in all fields.');
   }
 
+  /* =========================
+     SIGN UP
+  ========================= */
+
+  if (signup) {
+    const name = $('name').value.trim();
+
+    try {
+      msg('Creating your account...');
+
+      const response = await fetch(
+        `${BACKEND_URL}/users`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: name
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        console.error('Signup error:', data);
+
+        return msg(
+          data.error ||
+            'Could not create your account.'
+        );
+      }
+
+      s.logged = true;
+
+      s.user = {
+        id: data.user?.id || null,
+        name: name,
+        email: email
+      };
+
+      save();
+
+      msg('Account created successfully.');
+
+      nav('home');
+
+    } catch (error) {
+      console.error(
+        'Signup connection error:',
+        error
+      );
+
+      return msg(
+        'Unable to connect to the server.'
+      );
+    }
+
+    return;
+  }
+
+  /* =========================
+     LOGIN
+  ========================= */
+
   s.logged = true;
+
+  s.user = {
+    email: email
+  };
+
   save();
 
-  msg(signup ? 'Account created.' : 'Logged in.');
+  msg('Logged in.');
 };
 
 /* =========================================
@@ -643,10 +717,6 @@ async function verifyTransfer(reference) {
 
         return;
       }
-
-      /*
-        CREDIT WALLET
-      */
 
       s.balance +=
         paidAmount;
