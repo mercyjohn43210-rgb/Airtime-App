@@ -70,98 +70,141 @@ function nav(p) {
     );
 }
 
+
 /* =========================================
    LOGIN / SIGN UP
 ========================================= */
 
 $('authBtn').onclick = async () => {
-  const email = $('email').value.trim();
+  const email = $('email').value.trim().toLowerCase();
   const password = $('password').value;
 
-  if (
-    !email ||
-    !password ||
-    (signup && !$('name').value.trim())
-  ) {
-    return msg('Please fill in all fields.');
+  if (!email || !password) {
+    return msg('Please enter your email and password.');
   }
 
-  /* =========================
-     SIGN UP
-  ========================= */
+  if (signup && !$('name').value.trim()) {
+    return msg('Please enter your full name.');
+  }
 
-  if (signup) {
-    const name = $('name').value.trim();
+  try {
+    $('authBtn').disabled = true;
 
-    try {
-      msg('Creating your account...');
+    $('authBtn').textContent =
+      signup ? 'Creating account...' : 'Logging in...';
+
+    /* =========================
+       SIGN UP
+    ========================= */
+
+    if (signup) {
+      const name = $('name').value.trim();
 
       const response = await fetch(
         `${BACKEND_URL}/users`,
         {
           method: 'POST',
+
           headers: {
             'Content-Type': 'application/json'
           },
+
           body: JSON.stringify({
-            name: name
+            name: name,
+            email: email,
+            password: password
           })
         }
       );
 
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        console.error('Signup error:', data);
+      console.log('Signup response:', data);
 
+      if (!response.ok || !data.success) {
         return msg(
           data.error ||
-            'Could not create your account.'
+          'Could not create your account.'
         );
       }
 
       s.logged = true;
 
-      s.user = {
-        id: data.user?.id || null,
-        name: name,
-        email: email
-      };
+      s.user = data.user;
 
       save();
+
+      $('password').value = '';
 
       msg('Account created successfully.');
 
       nav('home');
 
-    } catch (error) {
-      console.error(
-        'Signup connection error:',
-        error
-      );
+      return;
+    }
 
+
+    /* =========================
+       LOGIN
+    ========================= */
+
+    const response = await fetch(
+      `${BACKEND_URL}/login`,
+      {
+        method: 'POST',
+
+        headers: {
+          'Content-Type': 'application/json'
+        },
+
+        body: JSON.stringify({
+          email: email,
+          password: password
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    console.log('Login response:', data);
+
+    if (!response.ok || !data.success) {
       return msg(
-        'Unable to connect to the server.'
+        data.error ||
+        'Invalid email or password.'
       );
     }
 
-    return;
+    s.logged = true;
+
+    s.user = data.user;
+
+    save();
+
+    $('password').value = '';
+
+    msg('Logged in successfully.');
+
+    nav('home');
+
+  } catch (error) {
+    console.error(
+      'Authentication error:',
+      error
+    );
+
+    msg(
+      'Unable to connect to the server.'
+    );
+
+  } finally {
+    $('authBtn').disabled = false;
+
+    $('authBtn').textContent =
+      signup ? 'Sign up' : 'Log in';
   }
-
-  /* =========================
-     LOGIN
-  ========================= */
-
-  s.logged = true;
-
-  s.user = {
-    email: email
-  };
-
-  save();
-
-  msg('Logged in.');
 };
+
 
 /* =========================================
    SIGN UP / LOGIN SWITCH
@@ -182,8 +225,12 @@ $('switch').onclick = () => {
     ? 'Already have an account? Log in'
     : 'Create an account';
 
-  $('name').classList.toggle('hidden', !signup);
+  $('name').classList.toggle(
+    'hidden',
+    !signup
+  );
 };
+
 
 /* =========================================
    LOGOUT
@@ -191,8 +238,14 @@ $('switch').onclick = () => {
 
 $('logout').onclick = () => {
   s.logged = false;
+
+  s.user = null;
+
   save();
+
+  msg('Logged out.');
 };
+
 
 /* =========================================
    CARD PAYMENT VERIFICATION
@@ -217,8 +270,9 @@ async function verifyPayment(reference) {
     if (!data.success) {
       msg(
         data.message ||
-          'Payment was not successful.'
+        'Payment was not successful.'
       );
+
       return;
     }
 
@@ -229,6 +283,7 @@ async function verifyPayment(reference) {
       paidAmount <= 0
     ) {
       msg('Invalid payment amount.');
+
       return;
     }
 
@@ -239,6 +294,7 @@ async function verifyPayment(reference) {
 
     if (alreadyCredited) {
       msg('This payment has already been credited.');
+
       return;
     }
 
@@ -246,11 +302,14 @@ async function verifyPayment(reference) {
 
     s.history.unshift({
       type: 'Wallet Funding',
+
       details:
         `Paystack Card • ${
           data.email || 'Payment successful'
         }`,
+
       amount: paidAmount,
+
       reference: data.reference
     });
 
@@ -268,9 +327,12 @@ async function verifyPayment(reference) {
       error
     );
 
-    msg('Unable to verify payment.');
+    msg(
+      'Unable to verify payment.'
+    );
   }
 }
+
 
 /* =========================================
    CHECK CARD PAYMENT RETURN
@@ -298,12 +360,14 @@ async function checkPaymentReturn() {
   await verifyPayment(reference);
 }
 
+
 /* =========================================
    CARD FUNDING
 ========================================= */
 
 async function fund() {
   const email = $('email').value.trim();
+
   const amountInput =
     $('fundAmount').value.trim();
 
@@ -319,7 +383,9 @@ async function fund() {
     !Number.isFinite(amount) ||
     amount < 100
   ) {
-    return msg('Minimum amount is ₦100.');
+    return msg(
+      'Minimum amount is ₦100.'
+    );
   }
 
   if (!email) {
@@ -329,7 +395,9 @@ async function fund() {
   }
 
   try {
-    msg('Connecting to Paystack...');
+    msg(
+      'Connecting to Paystack...'
+    );
 
     const response = await fetch(
       `${BACKEND_URL}/initialize-payment`,
@@ -347,7 +415,8 @@ async function fund() {
       }
     );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     if (
       data.status &&
@@ -356,12 +425,13 @@ async function fund() {
     ) {
       window.location.href =
         data.data.authorization_url;
+
     } else {
       console.error(data);
 
       msg(
         data.error ||
-          'Payment could not be started.'
+        'Payment could not be started.'
       );
     }
 
@@ -374,12 +444,14 @@ async function fund() {
   }
 }
 
+
 /* =========================================
    CREATE TRANSFER UI
 ========================================= */
 
 function createTransferUI() {
-  const walletSection = $('wallet');
+  const walletSection =
+    $('wallet');
 
   if (!walletSection) {
     return;
@@ -392,9 +464,11 @@ function createTransferUI() {
   const transferArea =
     document.createElement('div');
 
-  transferArea.id = 'transferArea';
+  transferArea.id =
+    'transferArea';
 
-  transferArea.style.marginTop = '20px';
+  transferArea.style.marginTop =
+    '20px';
 
   transferArea.innerHTML = `
     <hr>
@@ -421,18 +495,22 @@ function createTransferUI() {
 
   walletSection
     .querySelector('.card')
-    .appendChild(transferArea);
+    .appendChild(
+      transferArea
+    );
 
   $('transferBtn').onclick =
     initializeTransfer;
 }
+
 
 /* =========================================
    INITIALIZE BANK TRANSFER
 ========================================= */
 
 async function initializeTransfer() {
-  const email = $('email').value.trim();
+  const email =
+    $('email').value.trim();
 
   const amountInput =
     $('fundAmount').value.trim();
@@ -443,13 +521,16 @@ async function initializeTransfer() {
     );
   }
 
-  const amount = Number(amountInput);
+  const amount =
+    Number(amountInput);
 
   if (
     !Number.isFinite(amount) ||
     amount < 100
   ) {
-    return msg('Minimum amount is ₦100.');
+    return msg(
+      'Minimum amount is ₦100.'
+    );
   }
 
   if (!email) {
@@ -459,7 +540,8 @@ async function initializeTransfer() {
   }
 
   try {
-    $('transferBtn').disabled = true;
+    $('transferBtn').disabled =
+      true;
 
     $('transferBtn').textContent =
       'Creating transfer...';
@@ -468,23 +550,26 @@ async function initializeTransfer() {
       'Creating your transfer account...'
     );
 
-    const response = await fetch(
-      `${BACKEND_URL}/initialize-transfer`,
-      {
-        method: 'POST',
+    const response =
+      await fetch(
+        `${BACKEND_URL}/initialize-transfer`,
+        {
+          method: 'POST',
 
-        headers: {
-          'Content-Type': 'application/json'
-        },
+          headers: {
+            'Content-Type':
+              'application/json'
+          },
 
-        body: JSON.stringify({
-          email: email,
-          amount: amount
-        })
-      }
-    );
+          body: JSON.stringify({
+            email: email,
+            amount: amount
+          })
+        }
+      );
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     console.log(
       'Transfer response:',
@@ -498,14 +583,16 @@ async function initializeTransfer() {
     ) {
       throw new Error(
         data.error ||
-          'Transfer could not be created.'
+        'Transfer could not be created.'
       );
     }
 
     const transfer =
       data.data;
 
-    showTransferDetails(transfer);
+    showTransferDetails(
+      transfer
+    );
 
     msg(
       'Transfer account created.'
@@ -523,15 +610,17 @@ async function initializeTransfer() {
 
     msg(
       error.message ||
-        'Unable to create transfer.'
+      'Unable to create transfer.'
     );
 
-    $('transferBtn').disabled = false;
+    $('transferBtn').disabled =
+      false;
 
     $('transferBtn').textContent =
       'Pay by Bank Transfer';
   }
 }
+
 
 /* =========================================
    SHOW TRANSFER DETAILS
@@ -610,55 +699,67 @@ function showTransferDetails(data) {
   `;
 }
 
+
 /* =========================================
    CHECK TRANSFER STATUS
 ========================================= */
 
-function startTransferChecking(reference) {
+function startTransferChecking(
+  reference
+) {
   if (!reference) {
     return;
   }
 
   if (transferTimer) {
-    clearInterval(transferTimer);
+    clearInterval(
+      transferTimer
+    );
   }
 
   let attempts = 0;
 
   transferTimer =
-    setInterval(async () => {
-      attempts++;
+    setInterval(
+      async () => {
+        attempts++;
 
-      if (attempts > 60) {
-        clearInterval(
-          transferTimer
+        if (attempts > 60) {
+          clearInterval(
+            transferTimer
+          );
+
+          transferTimer = null;
+
+          msg(
+            'Transfer check timed out. You can check again later.'
+          );
+
+          return;
+        }
+
+        await verifyTransfer(
+          reference
         );
 
-        transferTimer = null;
-
-        msg(
-          'Transfer check timed out. You can check again later.'
-        );
-
-        return;
-      }
-
-      await verifyTransfer(
-        reference
-      );
-
-    }, 5000);
+      },
+      5000
+    );
 }
+
 
 /* =========================================
    VERIFY BANK TRANSFER
 ========================================= */
 
-async function verifyTransfer(reference) {
+async function verifyTransfer(
+  reference
+) {
   try {
-    const response = await fetch(
-      `${BACKEND_URL}/verify-transfer/${encodeURIComponent(reference)}`
-    );
+    const response =
+      await fetch(
+        `${BACKEND_URL}/verify-transfer/${encodeURIComponent(reference)}`
+      );
 
     const data =
       await response.json();
@@ -668,18 +769,15 @@ async function verifyTransfer(reference) {
       data
     );
 
-    if (
-      !response.ok
-    ) {
+    if (!response.ok) {
       return;
     }
 
     const statusBox =
       $('transferStatus');
 
-    if (
-      data.success
-    ) {
+    if (data.success) {
+
       if (transferTimer) {
         clearInterval(
           transferTimer
@@ -769,6 +867,7 @@ async function verifyTransfer(reference) {
   }
 }
 
+
 /* =========================================
    ADD MONEY BUTTON
 ========================================= */
@@ -784,11 +883,13 @@ $('fund').onclick = () => {
 $('fund2').onclick =
   fund;
 
+
 /* =========================================
    AIRTIME
 ========================================= */
 
 $('buyAirtime').onclick = () => {
+
   const p =
     $('aPhone').value.trim();
 
@@ -835,11 +936,13 @@ $('buyAirtime').onclick = () => {
   );
 };
 
+
 /* =========================================
    DATA
 ========================================= */
 
 $('buyData').onclick = () => {
+
   const p =
     $('dPhone').value.trim();
 
@@ -882,6 +985,7 @@ $('buyData').onclick = () => {
   );
 };
 
+
 /* =========================================
    NAVIGATION
 ========================================= */
@@ -890,15 +994,20 @@ document
   .querySelectorAll('.tab')
   .forEach(x => {
     x.onclick = () =>
-      nav(x.dataset.page);
+      nav(
+        x.dataset.page
+      );
   });
 
 document
   .querySelectorAll('[data-go]')
   .forEach(x => {
     x.onclick = () =>
-      nav(x.dataset.go);
+      nav(
+        x.dataset.go
+      );
   });
+
 
 /* =========================================
    START
