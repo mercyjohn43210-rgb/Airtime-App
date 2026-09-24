@@ -21,7 +21,11 @@ const money = n =>
   });
 
 function save() {
-  localStorage.setItem('jm_airtime', JSON.stringify(s));
+  localStorage.setItem(
+    'jm_airtime',
+    JSON.stringify(s)
+  );
+
   render();
 }
 
@@ -35,38 +39,119 @@ function msg(x) {
 }
 
 function render() {
-  $('auth').classList.toggle('hidden', s.logged);
-  $('app').classList.toggle('hidden', !s.logged);
-  $('logout').classList.toggle('hidden', !s.logged);
+  $('auth').classList.toggle(
+    'hidden',
+    s.logged
+  );
 
-  $('balance').textContent = money(s.balance);
-  $('walletBalance').textContent = money(s.balance);
+  $('app').classList.toggle(
+    'hidden',
+    !s.logged
+  );
 
-  $('transactions').innerHTML = s.history.length
-    ? s.history
-        .map(
-          x =>
-            `<div class="history">
-              <b>${x.type}</b><br>
-              <span class="muted">${x.details}</span><br>
-              ${money(x.amount)}
-            </div>`
-        )
-        .join('')
-    : '<p class="muted">No transactions yet.</p>';
+  $('logout').classList.toggle(
+    'hidden',
+    !s.logged
+  );
+
+  $('balance').textContent =
+    money(s.balance);
+
+  $('walletBalance').textContent =
+    money(s.balance);
+
+  $('transactions').innerHTML =
+    s.history.length
+      ? s.history
+          .map(
+            x =>
+              `<div class="history">
+                <b>${x.type}</b><br>
+                <span class="muted">${x.details}</span><br>
+                ${money(x.amount)}
+              </div>`
+          )
+          .join('')
+      : '<p class="muted">No transactions yet.</p>';
 }
+
+
+/* =========================================
+   LOAD WALLET FROM BACKEND
+========================================= */
+
+async function loadWallet() {
+  if (!s.user || !s.user.email) {
+    return;
+  }
+
+  try {
+    const email =
+      encodeURIComponent(
+        s.user.email
+      );
+
+    const response =
+      await fetch(
+        `${BACKEND_URL}/wallet/${email}`
+      );
+
+    const data =
+      await response.json();
+
+    console.log(
+      'Wallet response:',
+      data
+    );
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+      console.error(
+        'Could not load wallet:',
+        data
+      );
+
+      return;
+    }
+
+    s.balance =
+      Number(
+        data.wallet.balance
+      ) || 0;
+
+    save();
+
+  } catch (error) {
+    console.error(
+      'Wallet loading error:',
+      error
+    );
+  }
+}
+
+
+/* =========================================
+   NAVIGATION
+========================================= */
 
 function nav(p) {
   document
     .querySelectorAll('.page')
-    .forEach(x => x.classList.add('hidden'));
+    .forEach(x =>
+      x.classList.add('hidden')
+    );
 
   $(p).classList.remove('hidden');
 
   document
     .querySelectorAll('.tab')
     .forEach(x =>
-      x.classList.toggle('active', x.dataset.page === p)
+      x.classList.toggle(
+        'active',
+        x.dataset.page === p
+      )
     );
 }
 
@@ -75,199 +160,300 @@ function nav(p) {
    LOGIN / SIGN UP
 ========================================= */
 
-$('authBtn').onclick = async () => {
-  const email = $('email').value.trim().toLowerCase();
-  const password = $('password').value;
+$('authBtn').onclick =
+  async () => {
 
-  if (!email || !password) {
-    return msg('Please enter your email and password.');
-  }
+    const email =
+      $('email')
+        .value
+        .trim()
+        .toLowerCase();
 
-  if (signup && !$('name').value.trim()) {
-    return msg('Please enter your full name.');
-  }
+    const password =
+      $('password').value;
 
-  try {
-    $('authBtn').disabled = true;
+    if (
+      !email ||
+      !password
+    ) {
+      return msg(
+        'Please enter your email and password.'
+      );
+    }
 
-    $('authBtn').textContent =
-      signup ? 'Creating account...' : 'Logging in...';
+    if (
+      signup &&
+      !$('name').value.trim()
+    ) {
+      return msg(
+        'Please enter your full name.'
+      );
+    }
 
-    /* =========================
-       SIGN UP
-    ========================= */
+    try {
 
-    if (signup) {
-      const name = $('name').value.trim();
+      $('authBtn').disabled =
+        true;
 
-      const response = await fetch(
-        `${BACKEND_URL}/users`,
-        {
-          method: 'POST',
+      $('authBtn').textContent =
+        signup
+          ? 'Creating account...'
+          : 'Logging in...';
 
-          headers: {
-            'Content-Type': 'application/json'
-          },
 
-          body: JSON.stringify({
-            name: name,
-            email: email,
-            password: password
-          })
+      /* =========================
+         SIGN UP
+      ========================= */
+
+      if (signup) {
+
+        const name =
+          $('name')
+            .value
+            .trim();
+
+        const response =
+          await fetch(
+            `${BACKEND_URL}/users`,
+            {
+              method: 'POST',
+
+              headers: {
+                'Content-Type':
+                  'application/json'
+              },
+
+              body:
+                JSON.stringify({
+                  name:
+                    name,
+
+                  email:
+                    email,
+
+                  password:
+                    password
+                })
+            }
+          );
+
+        const data =
+          await response.json();
+
+        console.log(
+          'Signup response:',
+          data
+        );
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          return msg(
+            data.error ||
+            'Could not create your account.'
+          );
         }
+
+        s.logged = true;
+
+        s.user =
+          data.user;
+
+        s.balance =
+          Number(
+            data.wallet?.balance
+          ) || 0;
+
+        save();
+
+        $('password').value =
+          '';
+
+        msg(
+          'Account created successfully.'
+        );
+
+        nav('home');
+
+        return;
+      }
+
+
+      /* =========================
+         LOGIN
+      ========================= */
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/login`,
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+
+            body:
+              JSON.stringify({
+                email:
+                  email,
+
+                password:
+                  password
+              })
+          }
+        );
+
+      const data =
+        await response.json();
+
+      console.log(
+        'Login response:',
+        data
       );
 
-      const data = await response.json();
-
-      console.log('Signup response:', data);
-
-      if (!response.ok || !data.success) {
+      if (
+        !response.ok ||
+        !data.success
+      ) {
         return msg(
           data.error ||
-          'Could not create your account.'
+          'Invalid email or password.'
         );
       }
 
       s.logged = true;
 
-      s.user = data.user;
+      s.user =
+        data.user;
+
+      s.balance =
+        Number(
+          data.wallet?.balance
+        ) || 0;
 
       save();
 
-      $('password').value = '';
+      $('password').value =
+        '';
 
-      msg('Account created successfully.');
+      msg(
+        'Logged in successfully.'
+      );
 
       nav('home');
 
-      return;
-    }
+    } catch (error) {
 
-
-    /* =========================
-       LOGIN
-    ========================= */
-
-    const response = await fetch(
-      `${BACKEND_URL}/login`,
-      {
-        method: 'POST',
-
-        headers: {
-          'Content-Type': 'application/json'
-        },
-
-        body: JSON.stringify({
-          email: email,
-          password: password
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    console.log('Login response:', data);
-
-    if (!response.ok || !data.success) {
-      return msg(
-        data.error ||
-        'Invalid email or password.'
+      console.error(
+        'Authentication error:',
+        error
       );
+
+      msg(
+        'Unable to connect to the server.'
+      );
+
+    } finally {
+
+      $('authBtn').disabled =
+        false;
+
+      $('authBtn').textContent =
+        signup
+          ? 'Sign up'
+          : 'Log in';
     }
-
-    s.logged = true;
-
-    s.user = data.user;
-
-    save();
-
-    $('password').value = '';
-
-    msg('Logged in successfully.');
-
-    nav('home');
-
-  } catch (error) {
-    console.error(
-      'Authentication error:',
-      error
-    );
-
-    msg(
-      'Unable to connect to the server.'
-    );
-
-  } finally {
-    $('authBtn').disabled = false;
-
-    $('authBtn').textContent =
-      signup ? 'Sign up' : 'Log in';
-  }
-};
+  };
 
 
 /* =========================================
    SIGN UP / LOGIN SWITCH
 ========================================= */
 
-$('switch').onclick = () => {
-  signup = !signup;
+$('switch').onclick =
+  () => {
 
-  $('authTitle').textContent = signup
-    ? 'Create an account'
-    : 'Welcome back';
+    signup =
+      !signup;
 
-  $('authBtn').textContent = signup
-    ? 'Sign up'
-    : 'Log in';
+    $('authTitle').textContent =
+      signup
+        ? 'Create an account'
+        : 'Welcome back';
 
-  $('switch').textContent = signup
-    ? 'Already have an account? Log in'
-    : 'Create an account';
+    $('authBtn').textContent =
+      signup
+        ? 'Sign up'
+        : 'Log in';
 
-  $('name').classList.toggle(
-    'hidden',
-    !signup
-  );
-};
+    $('switch').textContent =
+      signup
+        ? 'Already have an account? Log in'
+        : 'Create an account';
+
+    $('name').classList.toggle(
+      'hidden',
+      !signup
+    );
+  };
 
 
 /* =========================================
    LOGOUT
 ========================================= */
 
-$('logout').onclick = () => {
-  s.logged = false;
+$('logout').onclick =
+  () => {
 
-  s.user = null;
+    s.logged =
+      false;
 
-  save();
+    s.user =
+      null;
 
-  msg('Logged out.');
-};
+    save();
+
+    msg(
+      'Logged out.'
+    );
+  };
 
 
 /* =========================================
    CARD PAYMENT VERIFICATION
 ========================================= */
 
-async function verifyPayment(reference) {
-  try {
-    msg('Verifying your payment...');
+async function verifyPayment(
+  reference
+) {
 
-    const response = await fetch(
-      `${BACKEND_URL}/verify-payment/${encodeURIComponent(reference)}`
+  try {
+
+    msg(
+      'Verifying your payment...'
     );
 
-    const data = await response.json();
+    const response =
+      await fetch(
+        `${BACKEND_URL}/verify-payment/${encodeURIComponent(reference)}`
+      );
+
+    const data =
+      await response.json();
 
     if (!response.ok) {
+
       throw new Error(
-        data.error || 'Verification failed.'
+        data.error ||
+        'Verification failed.'
       );
     }
 
     if (!data.success) {
+
       msg(
         data.message ||
         'Payment was not successful.'
@@ -276,41 +462,80 @@ async function verifyPayment(reference) {
       return;
     }
 
-    const paidAmount = Number(data.amount);
+    const paidAmount =
+      Number(
+        data.amount
+      );
 
     if (
-      !Number.isFinite(paidAmount) ||
+      !Number.isFinite(
+        paidAmount
+      ) ||
       paidAmount <= 0
     ) {
-      msg('Invalid payment amount.');
+
+      msg(
+        'Invalid payment amount.'
+      );
 
       return;
     }
 
-    const alreadyCredited = s.history.some(
-      transaction =>
-        transaction.reference === data.reference
-    );
+    const alreadyCredited =
+      s.history.some(
+        transaction =>
+          transaction.reference ===
+          data.reference
+      );
 
-    if (alreadyCredited) {
-      msg('This payment has already been credited.');
+    if (
+      alreadyCredited
+    ) {
+
+      await loadWallet();
+
+      msg(
+        'This payment has already been credited.'
+      );
 
       return;
     }
 
-    s.balance += paidAmount;
+
+    /*
+       BACKEND HAS ALREADY
+       CREDITED SUPABASE WALLET
+    */
+
+    if (data.wallet) {
+
+      s.balance =
+        Number(
+          data.wallet.balance
+        ) || 0;
+
+    } else {
+
+      await loadWallet();
+    }
+
 
     s.history.unshift({
-      type: 'Wallet Funding',
+
+      type:
+        'Wallet Funding',
 
       details:
         `Paystack Card • ${
-          data.email || 'Payment successful'
+          data.email ||
+          'Payment successful'
         }`,
 
-      amount: paidAmount,
+      amount:
+        paidAmount,
 
-      reference: data.reference
+      reference:
+        data.reference
     });
 
     save();
@@ -318,10 +543,13 @@ async function verifyPayment(reference) {
     nav('wallet');
 
     msg(
-      `${money(paidAmount)} has been added to your wallet.`
+      `${money(
+        paidAmount
+      )} has been added to your wallet.`
     );
 
   } catch (error) {
+
     console.error(
       'Payment verification error:',
       error
@@ -339,9 +567,11 @@ async function verifyPayment(reference) {
 ========================================= */
 
 async function checkPaymentReturn() {
-  const params = new URLSearchParams(
-    window.location.search
-  );
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
 
   const reference =
     params.get('reference') ||
@@ -357,7 +587,9 @@ async function checkPaymentReturn() {
     window.location.pathname
   );
 
-  await verifyPayment(reference);
+  await verifyPayment(
+    reference
+  );
 }
 
 
@@ -366,54 +598,75 @@ async function checkPaymentReturn() {
 ========================================= */
 
 async function fund() {
-  const email = $('email').value.trim();
+
+  const email =
+    $('email')
+      .value
+      .trim();
 
   const amountInput =
-    $('fundAmount').value.trim();
+    $('fundAmount')
+      .value
+      .trim();
 
   if (!amountInput) {
+
     return msg(
       'Enter the amount you want to add.'
     );
   }
 
-  const amount = Number(amountInput);
+  const amount =
+    Number(
+      amountInput
+    );
 
   if (
-    !Number.isFinite(amount) ||
+    !Number.isFinite(
+      amount
+    ) ||
     amount < 100
   ) {
+
     return msg(
       'Minimum amount is ₦100.'
     );
   }
 
   if (!email) {
+
     return msg(
       'Please enter your email address.'
     );
   }
 
   try {
+
     msg(
       'Connecting to Paystack...'
     );
 
-    const response = await fetch(
-      `${BACKEND_URL}/initialize-payment`,
-      {
-        method: 'POST',
+    const response =
+      await fetch(
+        `${BACKEND_URL}/initialize-payment`,
+        {
+          method: 'POST',
 
-        headers: {
-          'Content-Type': 'application/json'
-        },
+          headers: {
+            'Content-Type':
+              'application/json'
+          },
 
-        body: JSON.stringify({
-          email: email,
-          amount: amount
-        })
-      }
-    );
+          body:
+            JSON.stringify({
+              email:
+                email,
+
+              amount:
+                amount
+            })
+        }
+      );
 
     const data =
       await response.json();
@@ -423,11 +676,15 @@ async function fund() {
       data.data &&
       data.data.authorization_url
     ) {
+
       window.location.href =
         data.data.authorization_url;
 
     } else {
-      console.error(data);
+
+      console.error(
+        data
+      );
 
       msg(
         data.error ||
@@ -436,7 +693,10 @@ async function fund() {
     }
 
   } catch (error) {
-    console.error(error);
+
+    console.error(
+      error
+    );
 
     msg(
       'Unable to connect to payment server.'
@@ -450,6 +710,7 @@ async function fund() {
 ========================================= */
 
 function createTransferUI() {
+
   const walletSection =
     $('wallet');
 
@@ -462,7 +723,9 @@ function createTransferUI() {
   }
 
   const transferArea =
-    document.createElement('div');
+    document.createElement(
+      'div'
+    );
 
   transferArea.id =
     'transferArea';
@@ -509,37 +772,50 @@ function createTransferUI() {
 ========================================= */
 
 async function initializeTransfer() {
+
   const email =
-    $('email').value.trim();
+    $('email')
+      .value
+      .trim();
 
   const amountInput =
-    $('fundAmount').value.trim();
+    $('fundAmount')
+      .value
+      .trim();
 
   if (!amountInput) {
+
     return msg(
       'Enter the amount you want to add.'
     );
   }
 
   const amount =
-    Number(amountInput);
+    Number(
+      amountInput
+    );
 
   if (
-    !Number.isFinite(amount) ||
+    !Number.isFinite(
+      amount
+    ) ||
     amount < 100
   ) {
+
     return msg(
       'Minimum amount is ₦100.'
     );
   }
 
   if (!email) {
+
     return msg(
       'Please enter your email address.'
     );
   }
 
   try {
+
     $('transferBtn').disabled =
       true;
 
@@ -561,10 +837,14 @@ async function initializeTransfer() {
               'application/json'
           },
 
-          body: JSON.stringify({
-            email: email,
-            amount: amount
-          })
+          body:
+            JSON.stringify({
+              email:
+                email,
+
+              amount:
+                amount
+            })
         }
       );
 
@@ -581,6 +861,7 @@ async function initializeTransfer() {
       !data.status ||
       !data.data
     ) {
+
       throw new Error(
         data.error ||
         'Transfer could not be created.'
@@ -603,6 +884,7 @@ async function initializeTransfer() {
     );
 
   } catch (error) {
+
     console.error(
       'Transfer initialization error:',
       error
@@ -626,7 +908,10 @@ async function initializeTransfer() {
    SHOW TRANSFER DETAILS
 ========================================= */
 
-function showTransferDetails(data) {
+function showTransferDetails(
+  data
+) {
+
   const box =
     $('transferDetails');
 
@@ -647,13 +932,17 @@ function showTransferDetails(data) {
     'Paystack Transfer Account';
 
   const amount =
-    Number(data.amount) || 0;
+    Number(
+      data.amount
+    ) || 0;
 
   const expires =
     data.expires_at
       ? new Date(
           data.expires_at
-        ).toLocaleString('en-NG')
+        ).toLocaleString(
+          'en-NG'
+        )
       : 'See payment instructions';
 
   box.innerHTML = `
@@ -707,29 +996,37 @@ function showTransferDetails(data) {
 function startTransferChecking(
   reference
 ) {
+
   if (!reference) {
     return;
   }
 
   if (transferTimer) {
+
     clearInterval(
       transferTimer
     );
   }
 
-  let attempts = 0;
+  let attempts =
+    0;
 
   transferTimer =
     setInterval(
       async () => {
+
         attempts++;
 
-        if (attempts > 60) {
+        if (
+          attempts > 60
+        ) {
+
           clearInterval(
             transferTimer
           );
 
-          transferTimer = null;
+          transferTimer =
+            null;
 
           msg(
             'Transfer check timed out. You can check again later.'
@@ -755,7 +1052,9 @@ function startTransferChecking(
 async function verifyTransfer(
   reference
 ) {
+
   try {
+
     const response =
       await fetch(
         `${BACKEND_URL}/verify-transfer/${encodeURIComponent(reference)}`
@@ -779,15 +1078,19 @@ async function verifyTransfer(
     if (data.success) {
 
       if (transferTimer) {
+
         clearInterval(
           transferTimer
         );
 
-        transferTimer = null;
+        transferTimer =
+          null;
       }
 
       const paidAmount =
-        Number(data.amount);
+        Number(
+          data.amount
+        );
 
       if (
         !Number.isFinite(
@@ -808,7 +1111,11 @@ async function verifyTransfer(
       if (
         alreadyCredited
       ) {
+
+        await loadWallet();
+
         if (statusBox) {
+
           statusBox.textContent =
             'Transfer already credited.';
         }
@@ -816,10 +1123,27 @@ async function verifyTransfer(
         return;
       }
 
-      s.balance +=
-        paidAmount;
+
+      /*
+         BACKEND HAS ALREADY
+         CREDITED SUPABASE WALLET
+      */
+
+      if (data.wallet) {
+
+        s.balance =
+          Number(
+            data.wallet.balance
+          ) || 0;
+
+      } else {
+
+        await loadWallet();
+      }
+
 
       s.history.unshift({
+
         type:
           'Wallet Funding',
 
@@ -839,6 +1163,7 @@ async function verifyTransfer(
       save();
 
       if (statusBox) {
+
         statusBox.textContent =
           `Transfer successful. ${money(
             paidAmount
@@ -855,11 +1180,13 @@ async function verifyTransfer(
     }
 
     if (statusBox) {
+
       statusBox.textContent =
         'Waiting for transfer confirmation...';
     }
 
   } catch (error) {
+
     console.error(
       'Transfer verification error:',
       error
@@ -872,13 +1199,18 @@ async function verifyTransfer(
    ADD MONEY BUTTON
 ========================================= */
 
-$('fund').onclick = () => {
-  nav('wallet');
+$('fund').onclick =
+  () => {
 
-  setTimeout(() => {
-    $('fundAmount').focus();
-  }, 100);
-};
+    nav('wallet');
+
+    setTimeout(
+      () => {
+        $('fundAmount').focus();
+      },
+      100
+    );
+  };
 
 $('fund2').onclick =
   fund;
@@ -888,102 +1220,116 @@ $('fund2').onclick =
    AIRTIME
 ========================================= */
 
-$('buyAirtime').onclick = () => {
+$('buyAirtime').onclick =
+  () => {
 
-  const p =
-    $('aPhone').value.trim();
+    const p =
+      $('aPhone')
+        .value
+        .trim();
 
-  const a =
-    Number(
-      $('aAmount').value
+    const a =
+      Number(
+        $('aAmount').value
+      );
+
+    if (
+      !p ||
+      !a ||
+      a < 50
+    ) {
+
+      return msg(
+        'Enter a valid phone number and amount.'
+      );
+    }
+
+    if (
+      a > s.balance
+    ) {
+
+      return msg(
+        'Insufficient wallet balance.'
+      );
+    }
+
+    s.balance -=
+      a;
+
+    s.history.unshift({
+
+      type:
+        'Airtime',
+
+      details:
+        `${$('aNetwork').value} • ${p}`,
+
+      amount:
+        -a
+    });
+
+    save();
+
+    msg(
+      'Airtime purchase recorded.'
     );
-
-  if (
-    !p ||
-    !a ||
-    a < 50
-  ) {
-    return msg(
-      'Enter a valid phone number and amount.'
-    );
-  }
-
-  if (
-    a > s.balance
-  ) {
-    return msg(
-      'Insufficient wallet balance.'
-    );
-  }
-
-  s.balance -= a;
-
-  s.history.unshift({
-    type:
-      'Airtime',
-
-    details:
-      `${$('aNetwork').value} • ${p}`,
-
-    amount:
-      -a
-  });
-
-  save();
-
-  msg(
-    'Airtime purchase recorded.'
-  );
-};
+  };
 
 
 /* =========================================
    DATA
 ========================================= */
 
-$('buyData').onclick = () => {
+$('buyData').onclick =
+  () => {
 
-  const p =
-    $('dPhone').value.trim();
+    const p =
+      $('dPhone')
+        .value
+        .trim();
 
-  const a =
-    Number(
-      $('dPlan').value
+    const a =
+      Number(
+        $('dPlan').value
+      );
+
+    if (!p) {
+
+      return msg(
+        'Enter a phone number.'
+      );
+    }
+
+    if (
+      a > s.balance
+    ) {
+
+      return msg(
+        'Insufficient wallet balance.'
+      );
+    }
+
+    s.balance -=
+      a;
+
+    s.history.unshift({
+
+      type:
+        'Data',
+
+      details:
+        `${$('dNetwork').value} • ${p}`,
+
+      amount:
+        -a
+    });
+
+    save();
+
+    msg(
+      'Data purchase recorded.'
     );
-
-  if (!p) {
-    return msg(
-      'Enter a phone number.'
-    );
-  }
-
-  if (
-    a > s.balance
-  ) {
-    return msg(
-      'Insufficient wallet balance.'
-    );
-  }
-
-  s.balance -= a;
-
-  s.history.unshift({
-    type:
-      'Data',
-
-    details:
-      `${$('dNetwork').value} • ${p}`,
-
-    amount:
-      -a
-  });
-
-  save();
-
-  msg(
-    'Data purchase recorded.'
-  );
-};
+  };
 
 
 /* =========================================
@@ -992,21 +1338,29 @@ $('buyData').onclick = () => {
 
 document
   .querySelectorAll('.tab')
-  .forEach(x => {
-    x.onclick = () =>
-      nav(
-        x.dataset.page
-      );
-  });
+  .forEach(
+    x => {
+
+      x.onclick =
+        () =>
+          nav(
+            x.dataset.page
+          );
+    }
+  );
 
 document
   .querySelectorAll('[data-go]')
-  .forEach(x => {
-    x.onclick = () =>
-      nav(
-        x.dataset.go
-      );
-  });
+  .forEach(
+    x => {
+
+      x.onclick =
+        () =>
+          nav(
+            x.dataset.go
+          );
+    }
+  );
 
 
 /* =========================================
@@ -1016,5 +1370,9 @@ document
 render();
 
 createTransferUI();
+
+if (s.logged) {
+  loadWallet();
+}
 
 checkPaymentReturn();
