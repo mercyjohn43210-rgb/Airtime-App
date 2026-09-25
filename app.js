@@ -12,6 +12,7 @@ let s =
 
 let signup = false;
 let transferTimer = null;
+let dataPlans = [];
 
 const money = n =>
   '₦' +
@@ -30,49 +31,65 @@ function save() {
 }
 
 function msg(x) {
-  $('toast').textContent = x;
-  $('toast').style.display = 'block';
+  const toast = $('toast');
+
+  if (!toast) return;
+
+  toast.textContent = x;
+  toast.style.display = 'block';
 
   setTimeout(() => {
-    $('toast').style.display = 'none';
+    toast.style.display = 'none';
   }, 2200);
 }
 
 function render() {
-  $('auth').classList.toggle(
-    'hidden',
-    s.logged
-  );
+  if ($('auth')) {
+    $('auth').classList.toggle(
+      'hidden',
+      s.logged
+    );
+  }
 
-  $('app').classList.toggle(
-    'hidden',
-    !s.logged
-  );
+  if ($('app')) {
+    $('app').classList.toggle(
+      'hidden',
+      !s.logged
+    );
+  }
 
-  $('logout').classList.toggle(
-    'hidden',
-    !s.logged
-  );
+  if ($('logout')) {
+    $('logout').classList.toggle(
+      'hidden',
+      !s.logged
+    );
+  }
 
-  $('balance').textContent =
-    money(s.balance);
+  if ($('balance')) {
+    $('balance').textContent =
+      money(s.balance);
+  }
 
-  $('walletBalance').textContent =
-    money(s.balance);
+  if ($('walletBalance')) {
+    $('walletBalance').textContent =
+      money(s.balance);
+  }
 
-  $('transactions').innerHTML =
-    s.history.length
-      ? s.history
-          .map(
-            x =>
-              `<div class="history">
-                <b>${x.type}</b><br>
-                <span class="muted">${x.details}</span><br>
-                ${money(x.amount)}
-              </div>`
-          )
-          .join('')
-      : '<p class="muted">No transactions yet.</p>';
+  if ($('transactions')) {
+    $('transactions').innerHTML =
+      s.history.length
+        ? s.history
+            .map(
+              x =>
+                `<div class="history">
+                  <b>${x.type}</b><br>
+                  <span class="muted">${x.details}</span><br>
+                  ${money(x.amount)}
+                </div>`
+            )
+            .join('')
+        : '<p class="muted">No transactions yet.</p>';
+  }
 }
 
 
@@ -133,17 +150,231 @@ async function loadWallet() {
 
 
 /* =========================================
+   LOAD DATA PLANS
+========================================= */
+
+async function loadDataPlans() {
+  try {
+    const response =
+      await fetch(
+        `${BACKEND_URL}/data`
+      );
+
+    const data =
+      await response.json();
+
+    console.log(
+      'Data plans response:',
+      data
+    );
+
+    if (
+      !response.ok ||
+      !data.success ||
+      !Array.isArray(data.plans)
+    ) {
+      throw new Error(
+        data.error ||
+        'Could not load data plans.'
+      );
+    }
+
+    dataPlans =
+      data.plans;
+
+    populateDataPlans();
+
+  } catch (error) {
+
+    console.error(
+      'Data plans loading error:',
+      error
+    );
+
+    msg(
+      'Unable to load data plans.'
+    );
+  }
+}
+
+
+/* =========================================
+   POPULATE DATA PLANS
+========================================= */
+
+function populateDataPlans() {
+
+  const planSelect =
+    $('dPlan');
+
+  if (!planSelect) {
+    console.warn(
+      'dPlan select not found.'
+    );
+
+    return;
+  }
+
+  planSelect.innerHTML = '';
+
+  if (!dataPlans.length) {
+
+    planSelect.innerHTML =
+      '<option value="">No data plans available</option>';
+
+    return;
+  }
+
+  /*
+    Group plans by category
+  */
+
+  const categories = {
+    regular: 'Regular Data',
+    gift: 'Gift Data',
+    corporate: 'Corporate Data'
+  };
+
+  Object.keys(categories).forEach(
+    category => {
+
+      const plans =
+        dataPlans.filter(
+          plan =>
+            plan.category ===
+            category
+        );
+
+      if (!plans.length) {
+        return;
+      }
+
+      const group =
+        document.createElement(
+          'optgroup'
+        );
+
+      group.label =
+        categories[category];
+
+      plans.forEach(
+        plan => {
+
+          const option =
+            document.createElement(
+              'option'
+            );
+
+          option.value =
+            plan.id;
+
+          option.textContent =
+            `${plan.name} — ${money(
+              plan.amount
+            )} — ${plan.validity}`;
+
+          group.appendChild(
+            option
+          );
+        }
+      );
+
+      planSelect.appendChild(
+        group
+      );
+    }
+  );
+
+  updateSelectedDataPlan();
+}
+
+
+/* =========================================
+   UPDATE SELECTED DATA PLAN
+========================================= */
+
+function updateSelectedDataPlan() {
+
+  const planSelect =
+    $('dPlan');
+
+  if (!planSelect) {
+    return;
+  }
+
+  const plan =
+    dataPlans.find(
+      x =>
+        x.id ===
+        planSelect.value
+    );
+
+  if (!plan) {
+    return;
+  }
+
+  console.log(
+    'Selected data plan:',
+    plan
+  );
+
+  /*
+    If your HTML has a data price element,
+    update it automatically.
+  */
+
+  const price =
+    $('dataPrice');
+
+  if (price) {
+    price.textContent =
+      money(plan.amount);
+  }
+
+  const details =
+    $('dataPlanDetails');
+
+  if (details) {
+
+    details.textContent =
+      `${plan.size} • ${plan.validity}`;
+  }
+}
+
+
+/* =========================================
+   DATA PLAN CHANGE
+========================================= */
+
+if ($('dPlan')) {
+
+  $('dPlan').addEventListener(
+    'change',
+    updateSelectedDataPlan
+  );
+}
+
+
+/* =========================================
    NAVIGATION
 ========================================= */
 
 function nav(p) {
+
   document
     .querySelectorAll('.page')
     .forEach(x =>
       x.classList.add('hidden')
     );
 
-  $(p).classList.remove('hidden');
+  const page =
+    $(p);
+
+  if (page) {
+    page.classList.remove(
+      'hidden'
+    );
+  }
 
   document
     .querySelectorAll('.tab')
@@ -160,61 +391,140 @@ function nav(p) {
    LOGIN / SIGN UP
 ========================================= */
 
-$('authBtn').onclick =
-  async () => {
+if ($('authBtn')) {
 
-    const email =
-      $('email')
-        .value
-        .trim()
-        .toLowerCase();
+  $('authBtn').onclick =
+    async () => {
 
-    const password =
-      $('password').value;
+      const email =
+        $('email')
+          .value
+          .trim()
+          .toLowerCase();
 
-    if (
-      !email ||
-      !password
-    ) {
-      return msg(
-        'Please enter your email and password.'
-      );
-    }
+      const password =
+        $('password').value;
 
-    if (
-      signup &&
-      !$('name').value.trim()
-    ) {
-      return msg(
-        'Please enter your full name.'
-      );
-    }
+      if (
+        !email ||
+        !password
+      ) {
 
-    try {
+        return msg(
+          'Please enter your email and password.'
+        );
+      }
 
-      $('authBtn').disabled =
-        true;
+      if (
+        signup &&
+        $('name') &&
+        !$('name').value.trim()
+      ) {
 
-      $('authBtn').textContent =
-        signup
-          ? 'Creating account...'
-          : 'Logging in...';
+        return msg(
+          'Please enter your full name.'
+        );
+      }
+
+      try {
+
+        $('authBtn').disabled =
+          true;
+
+        $('authBtn').textContent =
+          signup
+            ? 'Creating account...'
+            : 'Logging in...';
 
 
-      /* =========================
-         SIGN UP
-      ========================= */
+        /* =========================
+           SIGN UP
+        ========================= */
 
-      if (signup) {
+        if (signup) {
 
-        const name =
-          $('name')
-            .value
-            .trim();
+          const name =
+            $('name')
+              .value
+              .trim();
+
+          const response =
+            await fetch(
+              `${BACKEND_URL}/users`,
+              {
+                method: 'POST',
+
+                headers: {
+                  'Content-Type':
+                    'application/json'
+                },
+
+                body:
+                  JSON.stringify({
+                    name:
+                      name,
+
+                    email:
+                      email,
+
+                    password:
+                      password
+                  })
+              }
+            );
+
+          const data =
+            await response.json();
+
+          console.log(
+            'Signup response:',
+            data
+          );
+
+          if (
+            !response.ok ||
+            !data.success
+          ) {
+
+            return msg(
+              data.error ||
+              'Could not create your account.'
+            );
+          }
+
+          s.logged =
+            true;
+
+          s.user =
+            data.user;
+
+          s.balance =
+            Number(
+              data.wallet?.balance
+            ) || 0;
+
+          save();
+
+          $('password').value =
+            '';
+
+          msg(
+            'Account created successfully.'
+          );
+
+          nav('home');
+
+          return;
+        }
+
+
+        /* =========================
+           LOGIN
+        ========================= */
 
         const response =
           await fetch(
-            `${BACKEND_URL}/users`,
+            `${BACKEND_URL}/login`,
             {
               method: 'POST',
 
@@ -225,9 +535,6 @@ $('authBtn').onclick =
 
               body:
                 JSON.stringify({
-                  name:
-                    name,
-
                   email:
                     email,
 
@@ -241,7 +548,7 @@ $('authBtn').onclick =
           await response.json();
 
         console.log(
-          'Signup response:',
+          'Login response:',
           data
         );
 
@@ -249,13 +556,15 @@ $('authBtn').onclick =
           !response.ok ||
           !data.success
         ) {
+
           return msg(
             data.error ||
-            'Could not create your account.'
+            'Invalid email or password.'
           );
         }
 
-        s.logged = true;
+        s.logged =
+          true;
 
         s.user =
           data.user;
@@ -271,155 +580,98 @@ $('authBtn').onclick =
           '';
 
         msg(
-          'Account created successfully.'
+          'Logged in successfully.'
         );
 
         nav('home');
 
-        return;
-      }
+        await loadDataPlans();
 
+      } catch (error) {
 
-      /* =========================
-         LOGIN
-      ========================= */
-
-      const response =
-        await fetch(
-          `${BACKEND_URL}/login`,
-          {
-            method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json'
-            },
-
-            body:
-              JSON.stringify({
-                email:
-                  email,
-
-                password:
-                  password
-              })
-          }
+        console.error(
+          'Authentication error:',
+          error
         );
 
-      const data =
-        await response.json();
-
-      console.log(
-        'Login response:',
-        data
-      );
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-        return msg(
-          data.error ||
-          'Invalid email or password.'
+        msg(
+          'Unable to connect to the server.'
         );
+
+      } finally {
+
+        $('authBtn').disabled =
+          false;
+
+        $('authBtn').textContent =
+          signup
+            ? 'Sign up'
+            : 'Log in';
       }
-
-      s.logged = true;
-
-      s.user =
-        data.user;
-
-      s.balance =
-        Number(
-          data.wallet?.balance
-        ) || 0;
-
-      save();
-
-      $('password').value =
-        '';
-
-      msg(
-        'Logged in successfully.'
-      );
-
-      nav('home');
-
-    } catch (error) {
-
-      console.error(
-        'Authentication error:',
-        error
-      );
-
-      msg(
-        'Unable to connect to the server.'
-      );
-
-    } finally {
-
-      $('authBtn').disabled =
-        false;
-
-      $('authBtn').textContent =
-        signup
-          ? 'Sign up'
-          : 'Log in';
-    }
-  };
+    };
+}
 
 
 /* =========================================
    SIGN UP / LOGIN SWITCH
 ========================================= */
 
-$('switch').onclick =
-  () => {
+if ($('switch')) {
 
-    signup =
-      !signup;
+  $('switch').onclick =
+    () => {
 
-    $('authTitle').textContent =
-      signup
-        ? 'Create an account'
-        : 'Welcome back';
+      signup =
+        !signup;
 
-    $('authBtn').textContent =
-      signup
-        ? 'Sign up'
-        : 'Log in';
+      $('authTitle').textContent =
+        signup
+          ? 'Create an account'
+          : 'Welcome back';
 
-    $('switch').textContent =
-      signup
-        ? 'Already have an account? Log in'
-        : 'Create an account';
+      $('authBtn').textContent =
+        signup
+          ? 'Sign up'
+          : 'Log in';
 
-    $('name').classList.toggle(
-      'hidden',
-      !signup
-    );
-  };
+      $('switch').textContent =
+        signup
+          ? 'Already have an account? Log in'
+          : 'Create an account';
+
+      if ($('name')) {
+
+        $('name').classList.toggle(
+          'hidden',
+          !signup
+        );
+      }
+    };
+}
 
 
 /* =========================================
    LOGOUT
 ========================================= */
 
-$('logout').onclick =
-  () => {
+if ($('logout')) {
 
-    s.logged =
-      false;
+  $('logout').onclick =
+    () => {
 
-    s.user =
-      null;
+      s.logged =
+        false;
 
-    save();
+      s.user =
+        null;
 
-    msg(
-      'Logged out.'
-    );
-  };
+      save();
+
+      msg(
+        'Logged out.'
+      );
+    };
+}
 
 
 /* =========================================
@@ -501,12 +753,6 @@ async function verifyPayment(
       return;
     }
 
-
-    /*
-       BACKEND HAS ALREADY
-       CREDITED SUPABASE WALLET
-    */
-
     if (data.wallet) {
 
       s.balance =
@@ -518,7 +764,6 @@ async function verifyPayment(
 
       await loadWallet();
     }
-
 
     s.history.unshift({
 
@@ -601,8 +846,8 @@ async function fund() {
 
   const email =
     $('email')
-      .value
-      .trim();
+      ? $('email').value.trim()
+      : s.user?.email;
 
   const amountInput =
     $('fundAmount')
@@ -756,14 +1001,23 @@ function createTransferUI() {
     ></div>
   `;
 
-  walletSection
-    .querySelector('.card')
-    .appendChild(
-      transferArea
+  const card =
+    walletSection.querySelector(
+      '.card'
     );
 
-  $('transferBtn').onclick =
-    initializeTransfer;
+  if (card) {
+
+    card.appendChild(
+      transferArea
+    );
+  }
+
+  if ($('transferBtn')) {
+
+    $('transferBtn').onclick =
+      initializeTransfer;
+  }
 }
 
 
@@ -775,8 +1029,8 @@ async function initializeTransfer() {
 
   const email =
     $('email')
-      .value
-      .trim();
+      ? $('email').value.trim()
+      : s.user?.email;
 
   const amountInput =
     $('fundAmount')
@@ -895,11 +1149,14 @@ async function initializeTransfer() {
       'Unable to create transfer.'
     );
 
-    $('transferBtn').disabled =
-      false;
+    if ($('transferBtn')) {
 
-    $('transferBtn').textContent =
-      'Pay by Bank Transfer';
+      $('transferBtn').disabled =
+        false;
+
+      $('transferBtn').textContent =
+        'Pay by Bank Transfer';
+    }
   }
 }
 
@@ -1123,12 +1380,6 @@ async function verifyTransfer(
         return;
       }
 
-
-      /*
-         BACKEND HAS ALREADY
-         CREDITED SUPABASE WALLET
-      */
-
       if (data.wallet) {
 
         s.balance =
@@ -1140,7 +1391,6 @@ async function verifyTransfer(
 
         await loadWallet();
       }
-
 
       s.history.unshift({
 
@@ -1196,144 +1446,284 @@ async function verifyTransfer(
 
 
 /* =========================================
-   ADD MONEY BUTTON
+   ADD MONEY BUTTONS
 ========================================= */
 
-$('fund').onclick =
-  () => {
+if ($('fund')) {
 
-    nav('wallet');
+  $('fund').onclick =
+    () => {
 
-    setTimeout(
-      () => {
-        $('fundAmount').focus();
-      },
-      100
-    );
-  };
+      nav('wallet');
 
-$('fund2').onclick =
-  fund;
+      setTimeout(
+        () => {
+
+          if ($('fundAmount')) {
+            $('fundAmount').focus();
+          }
+
+        },
+        100
+      );
+    };
+}
+
+if ($('fund2')) {
+
+  $('fund2').onclick =
+    fund;
+}
 
 
 /* =========================================
    AIRTIME
 ========================================= */
 
-$('buyAirtime').onclick =
-  () => {
+if ($('buyAirtime')) {
 
-    const p =
-      $('aPhone')
-        .value
-        .trim();
+  $('buyAirtime').onclick =
+    () => {
 
-    const a =
-      Number(
-        $('aAmount').value
+      const p =
+        $('aPhone')
+          .value
+          .trim();
+
+      const a =
+        Number(
+          $('aAmount').value
+        );
+
+      if (
+        !p ||
+        !a ||
+        a < 50
+      ) {
+
+        return msg(
+          'Enter a valid phone number and amount.'
+        );
+      }
+
+      if (
+        a > s.balance
+      ) {
+
+        return msg(
+          'Insufficient wallet balance.'
+        );
+      }
+
+      /*
+        NOTE:
+        This still records airtime locally.
+        Actual airtime delivery will need
+        a VTU/provider API.
+      */
+
+      s.balance -=
+        a;
+
+      s.history.unshift({
+
+        type:
+          'Airtime',
+
+        details:
+          `${$('aNetwork').value} • ${p}`,
+
+        amount:
+          -a
+      });
+
+      save();
+
+      msg(
+        'Airtime purchase recorded.'
       );
-
-    if (
-      !p ||
-      !a ||
-      a < 50
-    ) {
-
-      return msg(
-        'Enter a valid phone number and amount.'
-      );
-    }
-
-    if (
-      a > s.balance
-    ) {
-
-      return msg(
-        'Insufficient wallet balance.'
-      );
-    }
-
-    s.balance -=
-      a;
-
-    s.history.unshift({
-
-      type:
-        'Airtime',
-
-      details:
-        `${$('aNetwork').value} • ${p}`,
-
-      amount:
-        -a
-    });
-
-    save();
-
-    msg(
-      'Airtime purchase recorded.'
-    );
-  };
+    };
+}
 
 
 /* =========================================
-   DATA
+   REAL DATA PURCHASE
 ========================================= */
 
-$('buyData').onclick =
-  () => {
+if ($('buyData')) {
 
-    const p =
-      $('dPhone')
-        .value
-        .trim();
+  $('buyData').onclick =
+    async () => {
 
-    const a =
-      Number(
-        $('dPlan').value
-      );
+      const p =
+        $('dPhone')
+          .value
+          .trim();
 
-    if (!p) {
+      const planId =
+        $('dPlan')
+          ? $('dPlan').value
+          : '';
 
-      return msg(
-        'Enter a phone number.'
-      );
-    }
+      if (!p) {
 
-    if (
-      a > s.balance
-    ) {
+        return msg(
+          'Enter a phone number.'
+        );
+      }
 
-      return msg(
-        'Insufficient wallet balance.'
-      );
-    }
+      if (!planId) {
 
-    s.balance -=
-      a;
+        return msg(
+          'Please select a data plan.'
+        );
+      }
 
-    s.history.unshift({
+      const plan =
+        dataPlans.find(
+          x =>
+            x.id ===
+            planId
+        );
 
-      type:
-        'Data',
+      if (!plan) {
 
-      details:
-        `${$('dNetwork').value} • ${p}`,
+        return msg(
+          'Selected data plan is not available.'
+        );
+      }
 
-      amount:
-        -a
-    });
+      if (
+        Number(plan.amount) >
+        Number(s.balance)
+      ) {
 
-    save();
+        return msg(
+          'Insufficient wallet balance.'
+        );
+      }
 
-    msg(
-      'Data purchase recorded.'
-    );
-  };
+      try {
+
+        $('buyData').disabled =
+          true;
+
+        $('buyData').textContent =
+          'Processing...';
+
+        msg(
+          'Processing data purchase...'
+        );
+
+        const response =
+          await fetch(
+            `${BACKEND_URL}/purchase-data`,
+            {
+              method: 'POST',
+
+              headers: {
+                'Content-Type':
+                  'application/json'
+              },
+
+              body:
+                JSON.stringify({
+                  email:
+                    s.user?.email,
+
+                  phone:
+                    p,
+
+                  planId:
+                    planId
+                })
+            }
+          );
+
+        const data =
+          await response.json();
+
+        console.log(
+          'Data purchase response:',
+          data
+        );
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+
+          return msg(
+            data.error ||
+            'Data purchase failed.'
+          );
+        }
+
+        /*
+          Backend has already deducted
+          the wallet balance.
+        */
+
+        if (data.wallet) {
+
+          s.balance =
+            Number(
+              data.wallet.balance
+            ) || 0;
+
+        } else {
+
+          await loadWallet();
+        }
+
+        s.history.unshift({
+
+          type:
+            'Data',
+
+          details:
+            `${plan.network} • ${plan.name} • ${p}`,
+
+          amount:
+            -Number(plan.amount),
+
+          reference:
+            data.reference
+        });
+
+        save();
+
+        nav('transactions');
+
+        msg(
+          `${plan.name} purchase submitted successfully.`
+        );
+
+      } catch (error) {
+
+        console.error(
+          'Data purchase error:',
+          error
+        );
+
+        msg(
+          'Unable to connect to data service.'
+        );
+
+      } finally {
+
+        $('buyData').disabled =
+          false;
+
+        $('buyData').textContent =
+          'Buy Data';
+      }
+    };
+}
 
 
 /* =========================================
-   NAVIGATION
+   NAVIGATION TABS
 ========================================= */
 
 document
@@ -1348,6 +1738,11 @@ document
           );
     }
   );
+
+
+/* =========================================
+   DATA-GO BUTTONS
+========================================= */
 
 document
   .querySelectorAll('[data-go]')
@@ -1364,15 +1759,25 @@ document
 
 
 /* =========================================
-   START
+   START APP
 ========================================= */
 
 render();
 
 createTransferUI();
 
+loadDataPlans();
+
 if (s.logged) {
+
   loadWallet();
+
+  /*
+    Load plans again after login
+    so the Buy Data page is ready.
+  */
+
+  loadDataPlans();
 }
 
 checkPaymentReturn();
