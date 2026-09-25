@@ -14,12 +14,22 @@ let signup = false;
 let transferTimer = null;
 let dataPlans = [];
 
+
+/* =========================================
+   MONEY FORMAT
+========================================= */
+
 const money = n =>
   '₦' +
-  Number(n).toLocaleString('en-NG', {
+  Number(n || 0).toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
+
+
+/* =========================================
+   SAVE APP STATE
+========================================= */
 
 function save() {
   localStorage.setItem(
@@ -29,6 +39,11 @@ function save() {
 
   render();
 }
+
+
+/* =========================================
+   MESSAGE
+========================================= */
 
 function msg(x) {
   const toast = $('toast');
@@ -43,7 +58,13 @@ function msg(x) {
   }, 2200);
 }
 
+
+/* =========================================
+   RENDER
+========================================= */
+
 function render() {
+
   if ($('auth')) {
     $('auth').classList.toggle(
       'hidden',
@@ -76,8 +97,10 @@ function render() {
   }
 
   if ($('transactions')) {
+
     $('transactions').innerHTML =
       s.history.length
+
         ? s.history
             .map(
               x =>
@@ -88,21 +111,24 @@ function render() {
                 </div>`
             )
             .join('')
+
         : '<p class="muted">No transactions yet.</p>';
   }
 }
 
 
 /* =========================================
-   LOAD WALLET FROM BACKEND
+   LOAD WALLET
 ========================================= */
 
 async function loadWallet() {
+
   if (!s.user || !s.user.email) {
     return;
   }
 
   try {
+
     const email =
       encodeURIComponent(
         s.user.email
@@ -125,6 +151,7 @@ async function loadWallet() {
       !response.ok ||
       !data.success
     ) {
+
       console.error(
         'Could not load wallet:',
         data
@@ -135,12 +162,13 @@ async function loadWallet() {
 
     s.balance =
       Number(
-        data.wallet.balance
+        data.wallet?.balance
       ) || 0;
 
     save();
 
   } catch (error) {
+
     console.error(
       'Wallet loading error:',
       error
@@ -154,7 +182,9 @@ async function loadWallet() {
 ========================================= */
 
 async function loadDataPlans() {
+
   try {
+
     const response =
       await fetch(
         `${BACKEND_URL}/data`
@@ -173,6 +203,7 @@ async function loadDataPlans() {
       !data.success ||
       !Array.isArray(data.plans)
     ) {
+
       throw new Error(
         data.error ||
         'Could not load data plans.'
@@ -181,6 +212,10 @@ async function loadDataPlans() {
 
     dataPlans =
       data.plans;
+
+    console.log(
+      `Loaded ${dataPlans.length} data plans.`
+    );
 
     populateDataPlans();
 
@@ -208,6 +243,7 @@ function populateDataPlans() {
     $('dPlan');
 
   if (!planSelect) {
+
     console.warn(
       'dPlan select not found.'
     );
@@ -225,9 +261,10 @@ function populateDataPlans() {
     return;
   }
 
-  /*
-    Group plans by category
-  */
+
+  /* =====================================
+     CATEGORIES
+  ===================================== */
 
   const categories = {
     regular: 'Regular Data',
@@ -235,14 +272,17 @@ function populateDataPlans() {
     corporate: 'Corporate Data'
   };
 
+
   Object.keys(categories).forEach(
-    category => {
+    categoryKey => {
 
       const plans =
         dataPlans.filter(
           plan =>
-            plan.category ===
-            category
+            String(
+              plan.category || ''
+            ).toLowerCase() ===
+            categoryKey
         );
 
       if (!plans.length) {
@@ -255,7 +295,8 @@ function populateDataPlans() {
         );
 
       group.label =
-        categories[category];
+        categories[categoryKey];
+
 
       plans.forEach(
         plan => {
@@ -269,7 +310,7 @@ function populateDataPlans() {
             plan.id;
 
           option.textContent =
-            `${plan.name} — ${money(
+            `${plan.network} ${plan.size} — ${money(
               plan.amount
             )} — ${plan.validity}`;
 
@@ -284,6 +325,7 @@ function populateDataPlans() {
       );
     }
   );
+
 
   updateSelectedDataPlan();
 }
@@ -318,18 +360,16 @@ function updateSelectedDataPlan() {
     plan
   );
 
-  /*
-    If your HTML has a data price element,
-    update it automatically.
-  */
 
   const price =
     $('dataPrice');
 
   if (price) {
+
     price.textContent =
       money(plan.amount);
   }
+
 
   const details =
     $('dataPlanDetails');
@@ -337,7 +377,7 @@ function updateSelectedDataPlan() {
   if (details) {
 
     details.textContent =
-      `${plan.size} • ${plan.validity}`;
+      `${plan.network} • ${plan.size} • ${plan.validity}`;
   }
 }
 
@@ -363,14 +403,16 @@ function nav(p) {
 
   document
     .querySelectorAll('.page')
-    .forEach(x =>
-      x.classList.add('hidden')
+    .forEach(
+      x =>
+        x.classList.add('hidden')
     );
 
   const page =
     $(p);
 
   if (page) {
+
     page.classList.remove(
       'hidden'
     );
@@ -378,11 +420,12 @@ function nav(p) {
 
   document
     .querySelectorAll('.tab')
-    .forEach(x =>
-      x.classList.toggle(
-        'active',
-        x.dataset.page === p
-      )
+    .forEach(
+      x =>
+        x.classList.toggle(
+          'active',
+          x.dataset.page === p
+        )
     );
 }
 
@@ -461,14 +504,9 @@ if ($('authBtn')) {
 
                 body:
                   JSON.stringify({
-                    name:
-                      name,
-
-                    email:
-                      email,
-
-                    password:
-                      password
+                    name,
+                    email,
+                    password
                   })
               }
             );
@@ -514,6 +552,8 @@ if ($('authBtn')) {
 
           nav('home');
 
+          await loadDataPlans();
+
           return;
         }
 
@@ -535,11 +575,8 @@ if ($('authBtn')) {
 
               body:
                 JSON.stringify({
-                  email:
-                    email,
-
-                  password:
-                    password
+                  email,
+                  password
                 })
             }
           );
@@ -624,10 +661,13 @@ if ($('switch')) {
       signup =
         !signup;
 
-      $('authTitle').textContent =
-        signup
-          ? 'Create an account'
-          : 'Welcome back';
+      if ($('authTitle')) {
+
+        $('authTitle').textContent =
+          signup
+            ? 'Create an account'
+            : 'Welcome back';
+      }
 
       $('authBtn').textContent =
         signup
@@ -678,9 +718,7 @@ if ($('logout')) {
    CARD PAYMENT VERIFICATION
 ========================================= */
 
-async function verifyPayment(
-  reference
-) {
+async function verifyPayment(reference) {
 
   try {
 
@@ -715,9 +753,7 @@ async function verifyPayment(
     }
 
     const paidAmount =
-      Number(
-        data.amount
-      );
+      Number(data.amount);
 
     if (
       !Number.isFinite(
@@ -845,14 +881,17 @@ async function checkPaymentReturn() {
 async function fund() {
 
   const email =
-    $('email')
-      ? $('email').value.trim()
-      : s.user?.email;
+    s.user?.email ||
+    (
+      $('email')
+        ? $('email').value.trim()
+        : ''
+    );
 
   const amountInput =
     $('fundAmount')
-      .value
-      .trim();
+      ? $('fundAmount').value.trim()
+      : '';
 
   if (!amountInput) {
 
@@ -862,9 +901,7 @@ async function fund() {
   }
 
   const amount =
-    Number(
-      amountInput
-    );
+    Number(amountInput);
 
   if (
     !Number.isFinite(
@@ -904,11 +941,8 @@ async function fund() {
 
           body:
             JSON.stringify({
-              email:
-                email,
-
-              amount:
-                amount
+              email,
+              amount
             })
         }
       );
@@ -1028,14 +1062,17 @@ function createTransferUI() {
 async function initializeTransfer() {
 
   const email =
-    $('email')
-      ? $('email').value.trim()
-      : s.user?.email;
+    s.user?.email ||
+    (
+      $('email')
+        ? $('email').value.trim()
+        : ''
+    );
 
   const amountInput =
     $('fundAmount')
-      .value
-      .trim();
+      ? $('fundAmount').value.trim()
+      : '';
 
   if (!amountInput) {
 
@@ -1045,9 +1082,7 @@ async function initializeTransfer() {
   }
 
   const amount =
-    Number(
-      amountInput
-    );
+    Number(amountInput);
 
   if (
     !Number.isFinite(
@@ -1093,11 +1128,8 @@ async function initializeTransfer() {
 
           body:
             JSON.stringify({
-              email:
-                email,
-
-              amount:
-                amount
+              email,
+              amount
             })
         }
       );
@@ -1165,9 +1197,7 @@ async function initializeTransfer() {
    SHOW TRANSFER DETAILS
 ========================================= */
 
-function showTransferDetails(
-  data
-) {
+function showTransferDetails(data) {
 
   const box =
     $('transferDetails');
@@ -1189,9 +1219,7 @@ function showTransferDetails(
     'Paystack Transfer Account';
 
   const amount =
-    Number(
-      data.amount
-    ) || 0;
+    Number(data.amount) || 0;
 
   const expires =
     data.expires_at
@@ -1250,9 +1278,7 @@ function showTransferDetails(
    CHECK TRANSFER STATUS
 ========================================= */
 
-function startTransferChecking(
-  reference
-) {
+function startTransferChecking(reference) {
 
   if (!reference) {
     return;
@@ -1265,8 +1291,7 @@ function startTransferChecking(
     );
   }
 
-  let attempts =
-    0;
+  let attempts = 0;
 
   transferTimer =
     setInterval(
@@ -1274,9 +1299,7 @@ function startTransferChecking(
 
         attempts++;
 
-        if (
-          attempts > 60
-        ) {
+        if (attempts > 60) {
 
           clearInterval(
             transferTimer
@@ -1306,9 +1329,7 @@ function startTransferChecking(
    VERIFY BANK TRANSFER
 ========================================= */
 
-async function verifyTransfer(
-  reference
-) {
+async function verifyTransfer(reference) {
 
   try {
 
@@ -1345,9 +1366,7 @@ async function verifyTransfer(
       }
 
       const paidAmount =
-        Number(
-          data.amount
-        );
+        Number(data.amount);
 
       if (
         !Number.isFinite(
@@ -1460,6 +1479,7 @@ if ($('fund')) {
         () => {
 
           if ($('fundAmount')) {
+
             $('fundAmount').focus();
           }
 
@@ -1516,14 +1536,12 @@ if ($('buyAirtime')) {
       }
 
       /*
-        NOTE:
-        This still records airtime locally.
-        Actual airtime delivery will need
-        a VTU/provider API.
+        Airtime delivery is still local/mock.
+        A real VTU provider is needed for
+        actual airtime delivery.
       */
 
-      s.balance -=
-        a;
+      s.balance -= a;
 
       s.history.unshift({
 
@@ -1659,11 +1677,6 @@ if ($('buyData')) {
           );
         }
 
-        /*
-          Backend has already deducted
-          the wallet balance.
-        */
-
         if (data.wallet) {
 
           s.balance =
@@ -1771,11 +1784,6 @@ loadDataPlans();
 if (s.logged) {
 
   loadWallet();
-
-  /*
-    Load plans again after login
-    so the Buy Data page is ready.
-  */
 
   loadDataPlans();
 }
