@@ -2,137 +2,284 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Johnmercy Data & Airtime</title>
+
 <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
 <header>
+
   <div class="brand">
+
     <div class="logo">JM</div>
+
     <div>
       <b>Johnmercy</b>
       <small>Data & Airtime</small>
     </div>
+
   </div>
 
-  <button id="logout" class="danger hidden">Log out</button>
+  <button id="logout" class="danger hidden">
+    Log out
+  </button>
+
 </header>
+
 
 <main>
 
+<!-- ================= AUTH ================= -->
+
 <section id="auth" class="screen">
+
   <div class="card auth">
 
-    <h1 id="authTitle">Welcome back</h1>
+    <h1 id="authTitle">
+      Welcome back
+    </h1>
 
-    <p>Buy airtime and data from one simple dashboard.</p>
+    <p>
+      Buy airtime and data from one simple dashboard.
+    </p>
 
     <input
       id="name"
       class="hidden"
       placeholder="Full name"
+      autocomplete="name"
     >
 
     <input
       id="email"
       type="email"
       placeholder="Email address"
+      autocomplete="email"
     >
 
     <input
       id="password"
       type="password"
       placeholder="Password"
+      autocomplete="current-password"
     >
 
-    <button id="authBtn" class="primary">
+    <button
+      id="authBtn"
+      class="primary"
+    >
       Log in
     </button>
 
-    <button id="switch" class="link">
+    <button
+      id="switch"
+      class="link"
+    >
       Create an account
     </button>
 
   </div>
+
 </section>
 
+
+<!-- ================= APP ================= -->
+
 <section id="app" class="hidden">
+
+
+  <!-- WALLET SUMMARY -->
 
   <div class="card wallet">
 
     <div>
-      <span>Wallet balance</span>
-      <strong id="balance">₦0.00</strong>
+
+      <span>
+        Wallet balance
+      </span>
+
+      <strong id="balance">
+        ₦0.00
+      </strong>
+
     </div>
 
-    <button id="fund" class="secondary">
+    <button
+      id="fund"
+      class="secondary"
+    >
       Add Money
     </button>
 
   </div>
 
+
+  <!-- NAVIGATION -->
+
   <nav>
-    <button class="tab active" data-page="home">Home</button>
-    <button class="tab" data-page="airtime">Airtime</button>
-    <button class="tab" data-page="data">Data</button>
-    <button class="tab" data-page="wallet">Wallet</button>
-    <button class="tab" data-page="history">History</button>
+
+    <button
+      class="tab active"
+      data-page="home"
+    >
+      Home
+    </button>
+
+    <button
+      class="tab"
+      data-page="airtime"
+    >
+      Airtime
+    </button>
+
+    <button
+      class="tab"
+      data-page="data"
+    >
+      Data
+    </button>
+
+    <button
+      class="tab"
+      data-page="wallet"
+    >
+      Wallet
+    </button>
+
+    <button
+      class="tab"
+      data-page="history"
+    >
+      History
+    </button>
+
   </nav>
 
-  <section id="home" class="page">
+
+  <!-- ================= HOME ================= -->
+
+  <section
+    id="home"
+    class="page"
+  >
 
     <div class="card hero">
-      <h2>Welcome to Johnmercy</h2>
-      <p>Fast and easy airtime & data purchases.</p>
+
+      <h2>
+        Welcome to Johnmercy
+      </h2>
+
+      <p>
+        Fast and easy airtime & data purchases.
+      </p>
+
     </div>
+
 
     <div class="grid">
 
-      <button class="service" data-go="airtime">
+      <button
+        class="service"
+        data-go="airtime"
+      >
+
         📱
-        <b>Buy Airtime</b>
-        <small>MTN, Airtel, Glo & 9mobile</small>
+
+        <b>
+          Buy Airtime
+        </b>
+
+        <small>
+          MTN, Airtel, Glo & 9mobile
+        </small>
+
       </button>
 
-      <button class="service" data-go="data">
+
+      <button
+        class="service"
+        data-go="data"
+      >
+
         🌐
-        <b>Buy Data</b>
-        <small>Choose your data bundle</small>
+
+        <b>
+          Buy Data
+        </b>
+
+        <small>
+          Regular, Gift & Corporate Data
+        </small>
+
       </button>
 
     </div>
 
   </section>
 
-  <section id="airtime" class="page hidden">
+
+  <!-- ================= AIRTIME ================= -->
+
+  <section
+    id="airtime"
+    class="page hidden"
+  >
 
     <div class="card">
 
-      <h2>Buy Airtime</h2>
+      <h2>
+        Buy Airtime
+      </h2>
+
 
       <select id="aNetwork">
-        <option>MTN</option>
-        <option>Airtel</option>
-        <option>Glo</option>
-        <option>9mobile</option>
+
+        <option value="MTN">
+          MTN
+        </option>
+
+        <option value="Airtel">
+          Airtel
+        </option>
+
+        <option value="Glo">
+          Glo
+        </option>
+
+        <option value="9mobile">
+          9mobile
+        </option>
+
       </select>
+
 
       <input
         id="aPhone"
         inputmode="numeric"
+        type="tel"
+        maxlength="11"
         placeholder="Phone number"
       >
+
 
       <input
         id="aAmount"
         inputmode="decimal"
+        type="number"
+        min="50"
+        step="1"
         placeholder="Amount (₦)"
       >
 
-      <button id="buyAirtime" class="primary">
+
+      <button
+        id="buyAirtime"
+        class="primary"
+      >
         Buy Airtime
       </button>
 
@@ -140,33 +287,110 @@
 
   </section>
 
-  <section id="data" class="page hidden">
+
+  <!-- ================= DATA ================= -->
+
+  <section
+    id="data"
+    class="page hidden"
+  >
 
     <div class="card">
 
-      <h2>Buy Data</h2>
+      <h2>
+        Buy Data
+      </h2>
+
+
+      <!-- NETWORK -->
 
       <select id="dNetwork">
-        <option>MTN</option>
-        <option>Airtel</option>
-        <option>Glo</option>
-        <option>9mobile</option>
+
+        <option value="MTN">
+          MTN
+        </option>
+
+        <option value="Airtel">
+          Airtel
+        </option>
+
+        <option value="Glo">
+          Glo
+        </option>
+
+        <option value="9mobile">
+          9mobile
+        </option>
+
       </select>
+
+
+      <!-- PHONE -->
 
       <input
         id="dPhone"
         inputmode="numeric"
+        type="tel"
+        maxlength="11"
         placeholder="Phone number"
       >
 
-      <select id="dPlan">
-        <option value="500">1GB — ₦500</option>
-        <option value="1000">2.5GB — ₦1,000</option>
-        <option value="1500">5GB — ₦1,500</option>
-        <option value="2500">10GB — ₦2,500</option>
+
+      <!-- DATA CATEGORY -->
+
+      <select id="dCategory">
+
+        <option value="regular">
+          Regular Data
+        </option>
+
+        <option value="gift">
+          Gift Data
+        </option>
+
+        <option value="corporate">
+          Corporate Data
+        </option>
+
       </select>
 
-      <button id="buyData" class="primary">
+
+      <!-- DATA PLAN -->
+
+      <select id="dPlan">
+
+        <option value="">
+          Loading data plans...
+        </option>
+
+      </select>
+
+
+      <!-- PLAN INFORMATION -->
+
+      <p
+        id="dataPlanDetails"
+        class="muted"
+      >
+        Select a data plan
+      </p>
+
+
+      <!-- PRICE -->
+
+      <input
+        id="dataPrice"
+        type="hidden"
+        value=""
+      >
+
+
+      <!-- BUY -->
+
+      <button
+        id="buyData"
+        class="primary"
+      >
         Buy Data
       </button>
 
@@ -174,18 +398,33 @@
 
   </section>
 
-  <section id="wallet" class="page hidden">
+
+  <!-- ================= WALLET ================= -->
+
+  <section
+    id="wallet"
+    class="page hidden"
+  >
 
     <div class="card">
 
-      <h2>Wallet</h2>
+      <h2>
+        Wallet
+      </h2>
 
-      <p>Your current wallet balance:</p>
+      <p>
+        Your current wallet balance:
+      </p>
 
-      <strong id="walletBalance">₦0.00</strong>
+
+      <strong id="walletBalance">
+        ₦0.00
+      </strong>
+
 
       <br>
       <br>
+
 
       <input
         id="fundAmount"
@@ -196,7 +435,11 @@
         placeholder="Enter amount (₦)"
       >
 
-      <button id="fund2" class="secondary">
+
+      <button
+        id="fund2"
+        class="secondary"
+      >
         Add Money
       </button>
 
@@ -204,25 +447,45 @@
 
   </section>
 
-  <section id="history" class="page hidden">
+
+  <!-- ================= HISTORY ================= -->
+
+  <section
+    id="history"
+    class="page hidden"
+  >
 
     <div class="card">
 
-      <h2>Transaction history</h2>
+      <h2>
+        Transaction history
+      </h2>
+
 
       <div id="transactions">
-        <p class="muted">No transactions yet.</p>
+
+        <p class="muted">
+          No transactions yet.
+        </p>
+
       </div>
 
     </div>
 
   </section>
 
+
 </section>
 
 </main>
 
+
+<!-- TOAST -->
+
 <div id="toast"></div>
+
+
+<!-- JAVASCRIPT -->
 
 <script src="app.js"></script>
 
