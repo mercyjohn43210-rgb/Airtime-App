@@ -16,7 +16,7 @@ let dataPlans = [];
 
 
 /* =========================================
-   MONEY FORMAT
+   MONEY
 ========================================= */
 
 const money = n =>
@@ -28,7 +28,7 @@ const money = n =>
 
 
 /* =========================================
-   SAVE APP STATE
+   SAVE
 ========================================= */
 
 function save() {
@@ -45,17 +45,18 @@ function save() {
    MESSAGE
 ========================================= */
 
-function msg(x) {
+function msg(message) {
+
   const toast = $('toast');
 
   if (!toast) return;
 
-  toast.textContent = x;
+  toast.textContent = message;
   toast.style.display = 'block';
 
   setTimeout(() => {
     toast.style.display = 'none';
-  }, 2200);
+  }, 2500);
 }
 
 
@@ -100,18 +101,23 @@ function render() {
 
     $('transactions').innerHTML =
       s.history.length
+        ? s.history.map(x => `
+            <div class="history">
 
-        ? s.history
-            .map(
-              x =>
-                `<div class="history">
-                  <b>${x.type}</b><br>
-                  <span class="muted">${x.details}</span><br>
-                  ${money(x.amount)}
-                </div>`
-            )
-            .join('')
+              <b>${x.type}</b>
 
+              <br>
+
+              <span class="muted">
+                ${x.details || ''}
+              </span>
+
+              <br>
+
+              ${money(x.amount)}
+
+            </div>
+          `).join('')
         : '<p class="muted">No transactions yet.</p>';
   }
 }
@@ -130,9 +136,7 @@ async function loadWallet() {
   try {
 
     const email =
-      encodeURIComponent(
-        s.user.email
-      );
+      encodeURIComponent(s.user.email);
 
     const response =
       await fetch(
@@ -143,34 +147,26 @@ async function loadWallet() {
       await response.json();
 
     console.log(
-      'Wallet response:',
+      'Wallet:',
       data
     );
 
     if (
-      !response.ok ||
-      !data.success
+      response.ok &&
+      data.success &&
+      data.wallet
     ) {
 
-      console.error(
-        'Could not load wallet:',
-        data
-      );
+      s.balance =
+        Number(data.wallet.balance) || 0;
 
-      return;
+      save();
     }
-
-    s.balance =
-      Number(
-        data.wallet?.balance
-      ) || 0;
-
-    save();
 
   } catch (error) {
 
     console.error(
-      'Wallet loading error:',
+      'Wallet error:',
       error
     );
   }
@@ -183,18 +179,34 @@ async function loadWallet() {
 
 async function loadDataPlans() {
 
+  const planSelect = $('dPlan');
+
+  if (!planSelect) {
+    console.error(
+      'dPlan was not found in index.html'
+    );
+    return;
+  }
+
+  planSelect.innerHTML =
+    '<option value="">Loading data plans...</option>';
+
   try {
 
     const response =
       await fetch(
-        `${BACKEND_URL}/data`
+        `${BACKEND_URL}/data`,
+        {
+          method: 'GET',
+          cache: 'no-store'
+        }
       );
 
     const data =
       await response.json();
 
     console.log(
-      'Data plans response:',
+      'DATA API RESPONSE:',
       data
     );
 
@@ -206,7 +218,7 @@ async function loadDataPlans() {
 
       throw new Error(
         data.error ||
-        'Could not load data plans.'
+        'Invalid data plan response'
       );
     }
 
@@ -214,7 +226,8 @@ async function loadDataPlans() {
       data.plans;
 
     console.log(
-      `Loaded ${dataPlans.length} data plans.`
+      'TOTAL DATA PLANS:',
+      dataPlans.length
     );
 
     populateDataPlans();
@@ -222,9 +235,12 @@ async function loadDataPlans() {
   } catch (error) {
 
     console.error(
-      'Data plans loading error:',
+      'DATA PLAN ERROR:',
       error
     );
+
+    planSelect.innerHTML =
+      '<option value="">Unable to load plans</option>';
 
     msg(
       'Unable to load data plans.'
@@ -243,11 +259,6 @@ function populateDataPlans() {
     $('dPlan');
 
   if (!planSelect) {
-
-    console.warn(
-      'dPlan select not found.'
-    );
-
     return;
   }
 
@@ -262,69 +273,212 @@ function populateDataPlans() {
   }
 
 
-  /* =====================================
-     CATEGORIES
-  ===================================== */
+  /*
+    Group plans by category.
+    This accepts:
+    Regular
+    Gift
+    Corporate
 
-  const categories = {
+    It also accepts lowercase versions.
+  */
+
+  const categoryNames = {
     regular: 'Regular Data',
     gift: 'Gift Data',
     corporate: 'Corporate Data'
   };
 
 
-  Object.keys(categories).forEach(
-    categoryKey => {
-
-      const plans =
-        dataPlans.filter(
-          plan =>
-            String(
-              plan.category || ''
-            ).toLowerCase() ===
-            categoryKey
-        );
-
-      if (!plans.length) {
-        return;
-      }
-
-      const group =
-        document.createElement(
-          'optgroup'
-        );
-
-      group.label =
-        categories[categoryKey];
+  const categories = [
+    'regular',
+    'gift',
+    'corporate'
+  ];
 
 
-      plans.forEach(
-        plan => {
+  categories.forEach(categoryKey => {
 
-          const option =
-            document.createElement(
-              'option'
-            );
+    const plans =
+      dataPlans.filter(plan => {
 
-          option.value =
-            plan.id;
+        const category =
+          String(
+            plan.category || ''
+          )
+          .trim()
+          .toLowerCase();
 
-          option.textContent =
-            `${plan.network} ${plan.size} — ${money(
-              plan.amount
-            )} — ${plan.validity}`;
+        return category === categoryKey;
+      });
 
-          group.appendChild(
-            option
-          );
-        }
-      );
 
-      planSelect.appendChild(
-        group
-      );
+    if (!plans.length) {
+      return;
     }
-  );
+
+
+    const group =
+      document.createElement('optgroup');
+
+    group.label =
+      categoryNames[categoryKey];
+
+
+    plans.forEach(plan => {
+
+      const option =
+        document.createElement('option');
+
+      option.value =
+        plan.id;
+
+      option.textContent =
+        `${plan.network || ''} ${plan.size || ''} — ${money(plan.amount)} — ${plan.validity || ''}`;
+
+      group.appendChild(option);
+    });
+
+
+    planSelect.appendChild(group);
+
+  });
+
+
+  /*
+    Fallback:
+    If the backend category names ever change,
+    still display the plans instead of showing
+    an empty dropdown.
+  */
+
+  if (!planSelect.children.length) {
+
+    dataPlans.forEach(plan => {
+
+      const option =
+        document.createElement('option');
+
+      option.value =
+        plan.id;
+
+      option.textContent =
+        `${plan.network || ''} ${plan.size || ''} — ${money(plan.amount)} — ${plan.validity || ''}`;
+
+      planSelect.appendChild(option);
+
+    });
+  }
+
+
+  updateSelectedDataPlan();
+  filterDataPlans();
+}
+
+
+/* =========================================
+   FILTER BY NETWORK + CATEGORY
+========================================= */
+
+function filterDataPlans() {
+
+  const planSelect =
+    $('dPlan');
+
+  const networkSelect =
+    $('dNetwork');
+
+  const categorySelect =
+    $('dCategory');
+
+  if (
+    !planSelect ||
+    !dataPlans.length
+  ) {
+    return;
+  }
+
+
+  const selectedNetwork =
+    networkSelect
+      ? networkSelect.value
+      : 'MTN';
+
+
+  const selectedCategory =
+    categorySelect
+      ? categorySelect.value.toLowerCase()
+      : 'regular';
+
+
+  const filtered =
+    dataPlans.filter(plan => {
+
+      const planNetwork =
+        String(
+          plan.network || ''
+        )
+        .trim()
+        .toLowerCase();
+
+      const planCategory =
+        String(
+          plan.category || ''
+        )
+        .trim()
+        .toLowerCase();
+
+      return (
+        planNetwork ===
+          selectedNetwork.toLowerCase()
+        &&
+        planCategory ===
+          selectedCategory
+      );
+    });
+
+
+  planSelect.innerHTML = '';
+
+
+  if (!filtered.length) {
+
+    planSelect.innerHTML =
+      '<option value="">No plans available</option>';
+
+    const details =
+      $('dataPlanDetails');
+
+    if (details) {
+      details.textContent =
+        'No plans available for this selection.';
+    }
+
+    const price =
+      $('dataPrice');
+
+    if (price) {
+      price.value = '';
+    }
+
+    return;
+  }
+
+
+  filtered.forEach(plan => {
+
+    const option =
+      document.createElement('option');
+
+    option.value =
+      plan.id;
+
+    option.textContent =
+      `${plan.size} — ${money(plan.amount)} — ${plan.validity}`;
+
+    planSelect.appendChild(option);
+
+  });
 
 
   updateSelectedDataPlan();
@@ -332,7 +486,7 @@ function populateDataPlans() {
 
 
 /* =========================================
-   UPDATE SELECTED DATA PLAN
+   SELECTED DATA PLAN
 ========================================= */
 
 function updateSelectedDataPlan() {
@@ -347,18 +501,14 @@ function updateSelectedDataPlan() {
   const plan =
     dataPlans.find(
       x =>
-        x.id ===
-        planSelect.value
+        String(x.id) ===
+        String(planSelect.value)
     );
+
 
   if (!plan) {
     return;
   }
-
-  console.log(
-    'Selected data plan:',
-    plan
-  );
 
 
   const price =
@@ -366,8 +516,13 @@ function updateSelectedDataPlan() {
 
   if (price) {
 
-    price.textContent =
-      money(plan.amount);
+    /*
+      dataPrice is hidden in the HTML,
+      so use VALUE, not textContent.
+    */
+
+    price.value =
+      plan.amount;
   }
 
 
@@ -377,13 +532,14 @@ function updateSelectedDataPlan() {
   if (details) {
 
     details.textContent =
-      `${plan.network} • ${plan.size} • ${plan.validity}`;
+      `${plan.network} • ${plan.size} • ${plan.validity} • ${money(plan.amount)}`;
   }
+
 }
 
 
 /* =========================================
-   DATA PLAN CHANGE
+   DATA PLAN EVENTS
 ========================================= */
 
 if ($('dPlan')) {
@@ -395,21 +551,39 @@ if ($('dPlan')) {
 }
 
 
+if ($('dNetwork')) {
+
+  $('dNetwork').addEventListener(
+    'change',
+    filterDataPlans
+  );
+}
+
+
+if ($('dCategory')) {
+
+  $('dCategory').addEventListener(
+    'change',
+    filterDataPlans
+  );
+}
+
+
 /* =========================================
    NAVIGATION
 ========================================= */
 
-function nav(p) {
+function nav(pageName) {
 
   document
     .querySelectorAll('.page')
-    .forEach(
-      x =>
-        x.classList.add('hidden')
-    );
+    .forEach(page => {
+      page.classList.add('hidden');
+    });
+
 
   const page =
-    $(p);
+    $(pageName);
 
   if (page) {
 
@@ -418,15 +592,27 @@ function nav(p) {
     );
   }
 
+
   document
     .querySelectorAll('.tab')
-    .forEach(
-      x =>
-        x.classList.toggle(
-          'active',
-          x.dataset.page === p
-        )
-    );
+    .forEach(tab => {
+
+      tab.classList.toggle(
+        'active',
+        tab.dataset.page === pageName
+      );
+
+    });
+
+
+  if (pageName === 'data') {
+
+    if (!dataPlans.length) {
+      loadDataPlans();
+    } else {
+      filterDataPlans();
+    }
+  }
 }
 
 
@@ -448,15 +634,14 @@ if ($('authBtn')) {
       const password =
         $('password').value;
 
-      if (
-        !email ||
-        !password
-      ) {
+
+      if (!email || !password) {
 
         return msg(
           'Please enter your email and password.'
         );
       }
+
 
       if (
         signup &&
@@ -469,6 +654,7 @@ if ($('authBtn')) {
         );
       }
 
+
       try {
 
         $('authBtn').disabled =
@@ -480,9 +666,7 @@ if ($('authBtn')) {
             : 'Logging in...';
 
 
-        /* =========================
-           SIGN UP
-        ========================= */
+        /* SIGN UP */
 
         if (signup) {
 
@@ -490,6 +674,7 @@ if ($('authBtn')) {
             $('name')
               .value
               .trim();
+
 
           const response =
             await fetch(
@@ -511,13 +696,10 @@ if ($('authBtn')) {
               }
             );
 
+
           const data =
             await response.json();
 
-          console.log(
-            'Signup response:',
-            data
-          );
 
           if (
             !response.ok ||
@@ -530,8 +712,8 @@ if ($('authBtn')) {
             );
           }
 
-          s.logged =
-            true;
+
+          s.logged = true;
 
           s.user =
             data.user;
@@ -541,10 +723,8 @@ if ($('authBtn')) {
               data.wallet?.balance
             ) || 0;
 
-          save();
 
-          $('password').value =
-            '';
+          save();
 
           msg(
             'Account created successfully.'
@@ -558,9 +738,7 @@ if ($('authBtn')) {
         }
 
 
-        /* =========================
-           LOGIN
-        ========================= */
+        /* LOGIN */
 
         const response =
           await fetch(
@@ -581,13 +759,10 @@ if ($('authBtn')) {
             }
           );
 
+
         const data =
           await response.json();
 
-        console.log(
-          'Login response:',
-          data
-        );
 
         if (
           !response.ok ||
@@ -600,8 +775,8 @@ if ($('authBtn')) {
           );
         }
 
-        s.logged =
-          true;
+
+        s.logged = true;
 
         s.user =
           data.user;
@@ -611,10 +786,8 @@ if ($('authBtn')) {
             data.wallet?.balance
           ) || 0;
 
-        save();
 
-        $('password').value =
-          '';
+        save();
 
         msg(
           'Logged in successfully.'
@@ -622,7 +795,10 @@ if ($('authBtn')) {
 
         nav('home');
 
+        await loadWallet();
+
         await loadDataPlans();
+
 
       } catch (error) {
 
@@ -650,7 +826,7 @@ if ($('authBtn')) {
 
 
 /* =========================================
-   SIGN UP / LOGIN SWITCH
+   SWITCH LOGIN / SIGN UP
 ========================================= */
 
 if ($('switch')) {
@@ -661,6 +837,7 @@ if ($('switch')) {
       signup =
         !signup;
 
+
       if ($('authTitle')) {
 
         $('authTitle').textContent =
@@ -669,15 +846,18 @@ if ($('switch')) {
             : 'Welcome back';
       }
 
+
       $('authBtn').textContent =
         signup
           ? 'Sign up'
           : 'Log in';
 
+
       $('switch').textContent =
         signup
           ? 'Already have an account? Log in'
           : 'Create an account';
+
 
       if ($('name')) {
 
@@ -699,13 +879,13 @@ if ($('logout')) {
   $('logout').onclick =
     () => {
 
-      s.logged =
-        false;
+      s.logged = false;
 
-      s.user =
-        null;
+      s.user = null;
 
       save();
+
+      nav('home');
 
       msg(
         'Logged out.'
@@ -715,7 +895,7 @@ if ($('logout')) {
 
 
 /* =========================================
-   CARD PAYMENT VERIFICATION
+   PAYSTACK VERIFICATION
 ========================================= */
 
 async function verifyPayment(reference) {
@@ -726,80 +906,60 @@ async function verifyPayment(reference) {
       'Verifying your payment...'
     );
 
+
     const response =
       await fetch(
         `${BACKEND_URL}/verify-payment/${encodeURIComponent(reference)}`
       );
 
+
     const data =
       await response.json();
 
-    if (!response.ok) {
 
-      throw new Error(
-        data.error ||
-        'Verification failed.'
-      );
-    }
-
-    if (!data.success) {
+    if (
+      !response.ok ||
+      !data.success
+    ) {
 
       msg(
         data.message ||
+        data.error ||
         'Payment was not successful.'
       );
 
       return;
     }
 
-    const paidAmount =
+
+    const amount =
       Number(data.amount);
 
+
     if (
-      !Number.isFinite(
-        paidAmount
-      ) ||
-      paidAmount <= 0
+      !Number.isFinite(amount) ||
+      amount <= 0
     ) {
-
-      msg(
-        'Invalid payment amount.'
-      );
-
       return;
     }
 
-    const alreadyCredited =
+
+    if (
       s.history.some(
-        transaction =>
-          transaction.reference ===
+        x =>
+          x.reference ===
           data.reference
-      );
-
-    if (
-      alreadyCredited
+      )
     ) {
 
       await loadWallet();
 
-      msg(
-        'This payment has already been credited.'
-      );
-
       return;
     }
 
-    if (data.wallet) {
 
-      s.balance =
-        Number(
-          data.wallet.balance
-        ) || 0;
+    await loadWallet();
 
-    } else {
-
-      await loadWallet();
-    }
 
     s.history.unshift({
 
@@ -807,32 +967,28 @@ async function verifyPayment(reference) {
         'Wallet Funding',
 
       details:
-        `Paystack Card • ${
-          data.email ||
-          'Payment successful'
-        }`,
+        `Paystack Card • ${data.email || 'Payment successful'}`,
 
       amount:
-        paidAmount,
+        amount,
 
       reference:
         data.reference
     });
+
 
     save();
 
     nav('wallet');
 
     msg(
-      `${money(
-        paidAmount
-      )} has been added to your wallet.`
+      `${money(amount)} added to your wallet.`
     );
+
 
   } catch (error) {
 
     console.error(
-      'Payment verification error:',
       error
     );
 
@@ -844,7 +1000,7 @@ async function verifyPayment(reference) {
 
 
 /* =========================================
-   CHECK CARD PAYMENT RETURN
+   PAYMENT RETURN
 ========================================= */
 
 async function checkPaymentReturn() {
@@ -854,19 +1010,23 @@ async function checkPaymentReturn() {
       window.location.search
     );
 
+
   const reference =
     params.get('reference') ||
     params.get('trxref');
 
+
   if (!reference) {
     return;
   }
+
 
   window.history.replaceState(
     {},
     document.title,
     window.location.pathname
   );
+
 
   await verifyPayment(
     reference
@@ -875,38 +1035,24 @@ async function checkPaymentReturn() {
 
 
 /* =========================================
-   CARD FUNDING
+   FUND WALLET
 ========================================= */
 
 async function fund() {
 
   const email =
     s.user?.email ||
-    (
-      $('email')
-        ? $('email').value.trim()
-        : ''
-    );
+    $('email')?.value.trim();
 
-  const amountInput =
-    $('fundAmount')
-      ? $('fundAmount').value.trim()
-      : '';
-
-  if (!amountInput) {
-
-    return msg(
-      'Enter the amount you want to add.'
-    );
-  }
 
   const amount =
-    Number(amountInput);
+    Number(
+      $('fundAmount')?.value
+    );
+
 
   if (
-    !Number.isFinite(
-      amount
-    ) ||
+    !Number.isFinite(amount) ||
     amount < 100
   ) {
 
@@ -915,18 +1061,21 @@ async function fund() {
     );
   }
 
+
   if (!email) {
 
     return msg(
-      'Please enter your email address.'
+      'Please log in first.'
     );
   }
+
 
   try {
 
     msg(
       'Connecting to Paystack...'
     );
+
 
     const response =
       await fetch(
@@ -947,13 +1096,14 @@ async function fund() {
         }
       );
 
+
     const data =
       await response.json();
 
+
     if (
       data.status &&
-      data.data &&
-      data.data.authorization_url
+      data.data?.authorization_url
     ) {
 
       window.location.href =
@@ -961,15 +1111,12 @@ async function fund() {
 
     } else {
 
-      console.error(
-        data
-      );
-
       msg(
         data.error ||
         'Payment could not be started.'
       );
     }
+
 
   } catch (error) {
 
@@ -985,7 +1132,7 @@ async function fund() {
 
 
 /* =========================================
-   CREATE TRANSFER UI
+   TRANSFER UI
 ========================================= */
 
 function createTransferUI() {
@@ -993,26 +1140,26 @@ function createTransferUI() {
   const walletSection =
     $('wallet');
 
-  if (!walletSection) {
+  if (
+    !walletSection ||
+    $('transferArea')
+  ) {
     return;
   }
 
-  if ($('transferArea')) {
-    return;
-  }
 
-  const transferArea =
-    document.createElement(
-      'div'
-    );
+  const area =
+    document.createElement('div');
 
-  transferArea.id =
+  area.id =
     'transferArea';
 
-  transferArea.style.marginTop =
+  area.style.marginTop =
     '20px';
 
-  transferArea.innerHTML = `
+
+  area.innerHTML = `
+
     <hr>
 
     <h3>Bank Transfer</h3>
@@ -1033,19 +1180,20 @@ function createTransferUI() {
       id="transferDetails"
       style="margin-top:15px;"
     ></div>
+
   `;
+
 
   const card =
     walletSection.querySelector(
       '.card'
     );
 
-  if (card) {
 
-    card.appendChild(
-      transferArea
-    );
+  if (card) {
+    card.appendChild(area);
   }
+
 
   if ($('transferBtn')) {
 
@@ -1056,38 +1204,23 @@ function createTransferUI() {
 
 
 /* =========================================
-   INITIALIZE BANK TRANSFER
+   INITIALIZE TRANSFER
 ========================================= */
 
 async function initializeTransfer() {
 
   const email =
-    s.user?.email ||
-    (
-      $('email')
-        ? $('email').value.trim()
-        : ''
-    );
+    s.user?.email;
 
-  const amountInput =
-    $('fundAmount')
-      ? $('fundAmount').value.trim()
-      : '';
-
-  if (!amountInput) {
-
-    return msg(
-      'Enter the amount you want to add.'
-    );
-  }
 
   const amount =
-    Number(amountInput);
+    Number(
+      $('fundAmount')?.value
+    );
+
 
   if (
-    !Number.isFinite(
-      amount
-    ) ||
+    !Number.isFinite(amount) ||
     amount < 100
   ) {
 
@@ -1096,12 +1229,14 @@ async function initializeTransfer() {
     );
   }
 
+
   if (!email) {
 
     return msg(
-      'Please enter your email address.'
+      'Please log in first.'
     );
   }
+
 
   try {
 
@@ -1111,9 +1246,6 @@ async function initializeTransfer() {
     $('transferBtn').textContent =
       'Creating transfer...';
 
-    msg(
-      'Creating your transfer account...'
-    );
 
     const response =
       await fetch(
@@ -1134,13 +1266,10 @@ async function initializeTransfer() {
         }
       );
 
+
     const data =
       await response.json();
 
-    console.log(
-      'Transfer response:',
-      data
-    );
 
     if (
       !response.ok ||
@@ -1154,25 +1283,25 @@ async function initializeTransfer() {
       );
     }
 
-    const transfer =
-      data.data;
 
     showTransferDetails(
-      transfer
+      data.data
     );
+
 
     msg(
       'Transfer account created.'
     );
 
+
     startTransferChecking(
-      transfer.reference
+      data.data.reference
     );
+
 
   } catch (error) {
 
     console.error(
-      'Transfer initialization error:',
       error
     );
 
@@ -1180,6 +1309,9 @@ async function initializeTransfer() {
       error.message ||
       'Unable to create transfer.'
     );
+
+
+  } finally {
 
     if ($('transferBtn')) {
 
@@ -1206,83 +1338,54 @@ function showTransferDetails(data) {
     return;
   }
 
-  const bank =
-    data.bank_name ||
-    'Bank information unavailable';
-
-  const account =
-    data.account_number ||
-    'Account number unavailable';
-
-  const accountName =
-    data.account_name ||
-    'Paystack Transfer Account';
-
-  const amount =
-    Number(data.amount) || 0;
-
-  const expires =
-    data.expires_at
-      ? new Date(
-          data.expires_at
-        ).toLocaleString(
-          'en-NG'
-        )
-      : 'See payment instructions';
 
   box.innerHTML = `
+
     <div class="card">
 
-      <h3>Transfer Details</h3>
+      <h3>
+        Transfer Details
+      </h3>
 
       <p>
         <b>Bank:</b>
-        ${bank}
+        ${data.bank_name || 'Unavailable'}
       </p>
 
       <p>
         <b>Account name:</b>
-        ${accountName}
+        ${data.account_name || 'Unavailable'}
       </p>
 
       <p>
         <b>Account number:</b>
-        ${account}
+        ${data.account_number || 'Unavailable'}
       </p>
 
       <p>
         <b>Amount:</b>
-        ${money(amount)}
+        ${money(data.amount)}
       </p>
 
       <p class="muted">
-        <b>Expires:</b>
-        ${expires}
-      </p>
-
-      <p>
-        Make the transfer from your bank app,
-        then wait for Paystack to confirm it.
+        Transfer the exact amount shown above.
       </p>
 
       <p id="transferStatus">
-        Waiting for transfer...
+        Waiting for transfer confirmation...
       </p>
 
     </div>
+
   `;
 }
 
 
 /* =========================================
-   CHECK TRANSFER STATUS
+   TRANSFER CHECK
 ========================================= */
 
 function startTransferChecking(reference) {
-
-  if (!reference) {
-    return;
-  }
 
   if (transferTimer) {
 
@@ -1291,7 +1394,9 @@ function startTransferChecking(reference) {
     );
   }
 
+
   let attempts = 0;
+
 
   transferTimer =
     setInterval(
@@ -1299,21 +1404,18 @@ function startTransferChecking(reference) {
 
         attempts++;
 
+
         if (attempts > 60) {
 
           clearInterval(
             transferTimer
           );
 
-          transferTimer =
-            null;
-
-          msg(
-            'Transfer check timed out. You can check again later.'
-          );
+          transferTimer = null;
 
           return;
         }
+
 
         await verifyTransfer(
           reference
@@ -1326,7 +1428,7 @@ function startTransferChecking(reference) {
 
 
 /* =========================================
-   VERIFY BANK TRANSFER
+   VERIFY TRANSFER
 ========================================= */
 
 async function verifyTransfer(reference) {
@@ -1338,20 +1440,19 @@ async function verifyTransfer(reference) {
         `${BACKEND_URL}/verify-transfer/${encodeURIComponent(reference)}`
       );
 
+
     const data =
       await response.json();
 
-    console.log(
-      'Transfer verification:',
-      data
-    );
 
     if (!response.ok) {
       return;
     }
 
-    const statusBox =
+
+    const status =
       $('transferStatus');
+
 
     if (data.success) {
 
@@ -1361,55 +1462,38 @@ async function verifyTransfer(reference) {
           transferTimer
         );
 
-        transferTimer =
-          null;
+        transferTimer = null;
       }
 
-      const paidAmount =
+
+      const amount =
         Number(data.amount);
 
+
       if (
-        !Number.isFinite(
-          paidAmount
-        ) ||
-        paidAmount <= 0
+        !Number.isFinite(amount) ||
+        amount <= 0
       ) {
         return;
       }
 
-      const alreadyCredited =
+
+      if (
         s.history.some(
-          transaction =>
-            transaction.reference ===
+          x =>
+            x.reference ===
             data.reference
-        );
-
-      if (
-        alreadyCredited
+        )
       ) {
 
         await loadWallet();
 
-        if (statusBox) {
-
-          statusBox.textContent =
-            'Transfer already credited.';
-        }
-
         return;
       }
 
-      if (data.wallet) {
 
-        s.balance =
-          Number(
-            data.wallet.balance
-          ) || 0;
+      await loadWallet();
 
-      } else {
-
-        await loadWallet();
-      }
 
       s.history.unshift({
 
@@ -1417,47 +1501,36 @@ async function verifyTransfer(reference) {
           'Wallet Funding',
 
         details:
-          `Bank Transfer • ${
-            data.email ||
-            'Transfer successful'
-          }`,
+          'Bank Transfer',
 
         amount:
-          paidAmount,
+          amount,
 
         reference:
           data.reference
       });
 
+
       save();
 
-      if (statusBox) {
 
-        statusBox.textContent =
-          `Transfer successful. ${money(
-            paidAmount
-          )} added to your wallet.`;
+      if (status) {
+
+        status.textContent =
+          `${money(amount)} added to your wallet.`;
       }
 
+
       msg(
-        `${money(
-          paidAmount
-        )} has been added to your wallet.`
+        `${money(amount)} added to your wallet.`
       );
-
-      return;
     }
 
-    if (statusBox) {
-
-      statusBox.textContent =
-        'Waiting for transfer confirmation...';
-    }
 
   } catch (error) {
 
     console.error(
-      'Transfer verification error:',
+      'Transfer verification:',
       error
     );
   }
@@ -1465,7 +1538,7 @@ async function verifyTransfer(reference) {
 
 
 /* =========================================
-   ADD MONEY BUTTONS
+   FUND BUTTON
 ========================================= */
 
 if ($('fund')) {
@@ -1475,19 +1548,14 @@ if ($('fund')) {
 
       nav('wallet');
 
-      setTimeout(
-        () => {
+      setTimeout(() => {
 
-          if ($('fundAmount')) {
+        $('fundAmount')?.focus();
 
-            $('fundAmount').focus();
-          }
-
-        },
-        100
-      );
+      }, 100);
     };
 }
+
 
 if ($('fund2')) {
 
@@ -1505,20 +1573,19 @@ if ($('buyAirtime')) {
   $('buyAirtime').onclick =
     () => {
 
-      const p =
-        $('aPhone')
-          .value
-          .trim();
+      const phone =
+        $('aPhone').value.trim();
 
-      const a =
+      const amount =
         Number(
           $('aAmount').value
         );
 
+
       if (
-        !p ||
-        !a ||
-        a < 50
+        !phone ||
+        !Number.isFinite(amount) ||
+        amount < 50
       ) {
 
         return msg(
@@ -1526,8 +1593,9 @@ if ($('buyAirtime')) {
         );
       }
 
+
       if (
-        a > s.balance
+        amount > s.balance
       ) {
 
         return msg(
@@ -1535,13 +1603,9 @@ if ($('buyAirtime')) {
         );
       }
 
-      /*
-        Airtime delivery is still local/mock.
-        A real VTU provider is needed for
-        actual airtime delivery.
-      */
 
-      s.balance -= a;
+      s.balance -= amount;
+
 
       s.history.unshift({
 
@@ -1549,13 +1613,15 @@ if ($('buyAirtime')) {
           'Airtime',
 
         details:
-          `${$('aNetwork').value} • ${p}`,
+          `${$('aNetwork').value} • ${phone}`,
 
         amount:
-          -a
+          -amount
       });
 
+
       save();
+
 
       msg(
         'Airtime purchase recorded.'
@@ -1565,7 +1631,7 @@ if ($('buyAirtime')) {
 
 
 /* =========================================
-   REAL DATA PURCHASE
+   DATA PURCHASE
 ========================================= */
 
 if ($('buyData')) {
@@ -1573,22 +1639,25 @@ if ($('buyData')) {
   $('buyData').onclick =
     async () => {
 
-      const p =
+      const phone =
         $('dPhone')
           .value
           .trim();
+
 
       const planId =
         $('dPlan')
           ? $('dPlan').value
           : '';
 
-      if (!p) {
+
+      if (!phone) {
 
         return msg(
           'Enter a phone number.'
         );
       }
+
 
       if (!planId) {
 
@@ -1597,12 +1666,14 @@ if ($('buyData')) {
         );
       }
 
+
       const plan =
         dataPlans.find(
           x =>
-            x.id ===
-            planId
+            String(x.id) ===
+            String(planId)
         );
+
 
       if (!plan) {
 
@@ -1611,15 +1682,20 @@ if ($('buyData')) {
         );
       }
 
+
+      const amount =
+        Number(plan.amount);
+
+
       if (
-        Number(plan.amount) >
-        Number(s.balance)
+        amount > Number(s.balance)
       ) {
 
         return msg(
           'Insufficient wallet balance.'
         );
       }
+
 
       try {
 
@@ -1629,9 +1705,6 @@ if ($('buyData')) {
         $('buyData').textContent =
           'Processing...';
 
-        msg(
-          'Processing data purchase...'
-        );
 
         const response =
           await fetch(
@@ -1646,25 +1719,30 @@ if ($('buyData')) {
 
               body:
                 JSON.stringify({
+
                   email:
                     s.user?.email,
 
                   phone:
-                    p,
+                    phone,
 
                   planId:
-                    planId
+                    plan.id
+
                 })
             }
           );
 
+
         const data =
           await response.json();
 
+
         console.log(
-          'Data purchase response:',
+          'Purchase response:',
           data
         );
+
 
         if (
           !response.ok ||
@@ -1676,6 +1754,7 @@ if ($('buyData')) {
             'Data purchase failed.'
           );
         }
+
 
         if (data.wallet) {
 
@@ -1689,28 +1768,33 @@ if ($('buyData')) {
           await loadWallet();
         }
 
+
         s.history.unshift({
 
           type:
             'Data',
 
           details:
-            `${plan.network} • ${plan.name} • ${p}`,
+            `${plan.network} • ${plan.size} • ${phone}`,
 
           amount:
-            -Number(plan.amount),
+            -amount,
 
           reference:
             data.reference
         });
 
+
         save();
 
-        nav('transactions');
+
+        nav('history');
+
 
         msg(
-          `${plan.name} purchase submitted successfully.`
+          'Data purchase submitted successfully.'
         );
+
 
       } catch (error) {
 
@@ -1722,6 +1806,7 @@ if ($('buyData')) {
         msg(
           'Unable to connect to data service.'
         );
+
 
       } finally {
 
@@ -1741,38 +1826,36 @@ if ($('buyData')) {
 
 document
   .querySelectorAll('.tab')
-  .forEach(
-    x => {
+  .forEach(tab => {
 
-      x.onclick =
-        () =>
-          nav(
-            x.dataset.page
-          );
-    }
-  );
+    tab.onclick =
+      () =>
+        nav(
+          tab.dataset.page
+        );
+
+  });
 
 
 /* =========================================
-   DATA-GO BUTTONS
+   HOME SERVICE BUTTONS
 ========================================= */
 
 document
   .querySelectorAll('[data-go]')
-  .forEach(
-    x => {
+  .forEach(button => {
 
-      x.onclick =
-        () =>
-          nav(
-            x.dataset.go
-          );
-    }
-  );
+    button.onclick =
+      () =>
+        nav(
+          button.dataset.go
+        );
+
+  });
 
 
 /* =========================================
-   START APP
+   START
 ========================================= */
 
 render();
@@ -1781,11 +1864,10 @@ createTransferUI();
 
 loadDataPlans();
 
+checkPaymentReturn();
+
+
 if (s.logged) {
 
   loadWallet();
-
-  loadDataPlans();
 }
-
-checkPaymentReturn();
